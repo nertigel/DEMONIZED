@@ -1,6 +1,7 @@
 # DEMONIZED.lua
 A discarded, heavily modified version of [local_player.lua](https://github.com/nertigel/local_player.lua)
 
+![image](image.png)
 
 ## Changelog
 
