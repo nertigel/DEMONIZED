@@ -1,9 +1,18 @@
 # DEMONIZED.lua
-A discarded, heavily modified version of [local_player.lua](https://github.com/nertigel/local_player.lua)
+heavily modified version of [local_player.lua](https://github.com/nertigel/local_player.lua)
 
 ![image](image.png)
 
 ## Changelog
+
+[ c08.02.25 ]
+- "XOR" string - pretty much randomizes/scuffs all drawn strings to prevent ocr / screenshot text capture
+- Added the option to reset a Slider back to it's default value by Right Click-ing it
+- Added `disabled` statement to elements
+- Added more models for Grenade ESP
+- Added force crosshair
+- Added voice proximity over-ride (with proximity slider)
+- Removed the use of `FMMC_KEY_TIP1` for inputs
 
 [ b25.09.23 ]
 - Resource initialization.
