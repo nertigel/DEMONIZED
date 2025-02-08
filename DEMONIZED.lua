@@ -1,26 +1,4 @@
 --[[
-	Ham.hook_native(0xF2E3912B, 6 /*FIRST ARG, TYPE_INTEGER*/, 6 /*LAST ARG IS ALWAYS RETURN VALUE*/, function(player)
-		if menu.invincible then
-			return false
-		else
-			return Citizen.InvokeNative(0xF2E3912B, player) -- call original function
-		end
-	end)
-	enum class DataType {
-		NULL_TYPE = 0,
-		NIL_TYPE = 1,
-		VECTOR2_TYPE = 2,
-		VECTOR3_TYPE = 3,
-		VECTOR4_TYPE = 4,
-		QUAT_TYPE = 5,
-		INTEGER_TYPE = 6,
-		STRING_TYPE = 7,
-	};
-	first arg = native hash
-	all next args until last "data type arg" = arguments passed to callback func 
-	"last" data type arg = return value
-	and then callback
-
 	lua's local vars limit is between 200-256, version dependant if im not wrong
 	TODO:
 	aimbot and check for IsEntityOnScreen
@@ -75,7 +53,7 @@ local framework = {
 	elements = {
 		item = {x = 20, y = 5, w = 15, h = 15},
 		previous_item = {x = 20, y = 5, w = 15, h = 15},
-		second_groupbox = false
+		second_column = false
 	},
 	groupboxes = {
 		hovered = 0,
@@ -85,11 +63,15 @@ local framework = {
 	config = {
 		vehicle_spawn_set_into = true,
 		settings_existing_entities = true,
-		settings_draw_notifications = true
+		settings_console_logging = true,
+		settings_draw_notifications = true,
+		settings_xor_labels = true,
+		settings_xor_thread_ms = 1000,
+		settings_xor_letter = 1,
 	},
 	cache = {},
 }
-local framework = framework
+
 framework.mathematics = {
 	clamp = (function(var, min, max)
 		if (var < min) then
@@ -227,6 +209,40 @@ framework.renderer.hovered = (function(x, y, w, h)
     return false
 end)
 
+local random_letters = {"-", "|", "_", " ", "/", "\\"}
+framework.cache.xor_labels = {}
+framework.elements.xor_label = (function(string)
+	local label = string or "unprovided"
+	if not (framework.config.settings_xor_labels) then 
+		return label
+	end
+	if (framework.cache.xor_labels[label] == nil) then 
+		local processed_words = {}
+		for word in label:gmatch("%S+") do
+			local length = #word
+			if (length > 2) then 
+				local value = (length % 3) + 1
+				if not (framework.config.settings_xor_ideal) then 
+					value = framework.config.settings_xor_letter
+				end
+				for key=1, value do 
+					local x = math.random(1, length)
+					local y = word:sub(x, x)
+					if not (y:match("%d")) then
+						word = word:sub(1, x-1) .. random_letters[math.random(#random_letters)] .. word:sub(x+1)
+					end
+				end
+			end
+			table.insert(processed_words, word)
+		end
+		
+		local new_label = table.concat(processed_words, " ")
+		framework.cache.xor_labels[label] = new_label
+	end
+
+	return framework.cache.xor_labels[label]
+end)
+
 framework.renderer.notifications.push = (function(label, time, color)
 	table.insert(framework.renderer.notifications, {label = label or "yeet", time = time or 3000, color = color or {r = 225, g = 225, b = 225}, start_time = GetGameTimer()})
 end)
@@ -234,7 +250,7 @@ local push_notification = framework.renderer.notifications.push
 
 framework.elements.groupbox_label = (function(idx, value)
 	if (framework.vars.groupbox_labels[idx]) then 
-		framework.vars.groupbox_labels[idx] = value
+		framework.vars.groupbox_labels[idx] = framework.elements.xor_label(value)
 	end
 end)
 framework.elements.check_box_handle = (function(value)
@@ -249,16 +265,17 @@ framework.elements.check_box = (function(data)
 	if not (config[state]) and not (not_config_value) then
 		config[state] = false
 	end
-	local label = data.label or "label"
+	local label = framework.elements.xor_label(data.label or "label")
 	local font = data.font or 0
 	local scale = data.scale or 0.23
-	local color = data.color or {r = 225, g = 225, b = 225}
+	local color = data.color or {r = 225, g = 225, b = 225, a = 254}
+	local disabled = data.disabled or false
 	local hover_off = 30
-	local additive = framework.groupboxes.scroll_y[framework.elements.second_groupbox and 2 or 1]
+	local additive = framework.groupboxes.scroll_y[framework.elements.second_column and 2 or 1]
 	framework.elements.previous_item = framework.elements.item
 	framework.elements.item.y = framework.elements.item.y + 20
 	framework.elements.item.w = framework.renderer.get_text_width(label, 0, 0.23) - 5
-	if (framework.elements.second_groupbox) then
+	if (framework.elements.second_column) then
 		framework.elements.item.x = framework.windows.main.wht-260
 	end
 
@@ -267,14 +284,17 @@ framework.elements.check_box = (function(data)
 	if (v1.y-v2.y > -20 or v1.y-v2.y < -525) then 
 		return 
 	end
+	if (disabled) then 
+		color.a = color.a - 70
+	end
 	framework.renderer.draw_rect(v2.x + framework.windows.main.wht-325, v2.y, 13, 13, 26, 26, 26, 254)
 	framework.renderer.draw_bordered_rect(v2.x + framework.windows.main.wht-325, v2.y, 13, 13, 35, 35, 35, 254)
 	if (config[state]) or (not_config_value and state) then
 		framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + framework.windows.main.wht-325 - 5, v2.y - 5, 23, 23, 0.0, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
 	end
 	local hovered = (framework.renderer.hovered(v2.x + framework.windows.main.wht-325, v2.y, 13, 13) or framework.renderer.hovered(v2.x, v2.y, framework.elements.item.w, 13))
-	if (hovered) then
-		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, 254, label, font, false, scale, data.outline)
+	if (hovered and not disabled) then
+		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, color.a, label, font, false, scale, data.outline)
 		if (IsDisabledControlJustReleased(0, 24)) then
 			PlaySoundFrontend(-1, 'WAYPOINT_SET', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
 			if not (not_config_value) then
@@ -292,22 +312,24 @@ framework.elements.check_box = (function(data)
 		end
 		framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + framework.windows.main.wht-325 - 5, v2.y - 5, 23, 23, 0.0, 225, 225, 225, 155)
 	else
-		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, 254 - hover_off, label, font, false, scale, data.outline)
+		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, color.a - hover_off, label, font, false, scale, data.outline)
 	end
 end)
+
 framework.elements.text_control = (function(data)
-	local label = data.label or "label"
+	local label = framework.elements.xor_label(data.label or "label")
 	local font = data.font or 0
 	local scale = data.scale or 0.23
 	local alignment = data.align or false
 	local width = framework.renderer.get_text_width(label, font, scale)
-	local color = data.color or {r = 225, g = 225, b = 225}
+	local color = data.color or {r = 225, g = 225, b = 225, a = 254}
+	local disabled = data.disabled or false
 	local hover_off = 30
-	local additive = framework.groupboxes.scroll_y[framework.elements.second_groupbox and 2 or 1]
+	local additive = framework.groupboxes.scroll_y[framework.elements.second_column and 2 or 1]
 	framework.elements.previous_item = framework.elements.item
 	framework.elements.item.y = framework.elements.item.y + 20
 	framework.elements.item.w = width - 5
-	if (framework.elements.second_groupbox) then
+	if (framework.elements.second_column) then
 		framework.elements.item.x = framework.windows.main.wht-260
 	end
 	local v1 = framework.windows[framework.vars.current_window]
@@ -315,8 +337,11 @@ framework.elements.text_control = (function(data)
 	if (v1.y-v2.y > -20 or v1.y-v2.y < -525) and not data.unscrollable then 
 		return 
 	end
-	if (framework.renderer.hovered(v2.x, v2.y, framework.elements.item.w, 13)) then
-		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, 254, label, font, alignment, scale, data.outline)
+	if (disabled) then 
+		color.a = color.a - 70
+	end
+	if (framework.renderer.hovered(v2.x, v2.y, framework.elements.item.w, 13) and not disabled) then
+		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, color.a, label, font, alignment, scale, data.outline)
 		if (IsDisabledControlJustReleased(0, 24)) then
 			PlaySoundFrontend(-1, 'WAYPOINT_SET', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
 			if (data.func) then
@@ -330,13 +355,14 @@ framework.elements.text_control = (function(data)
 			end
 		end
 	else
-		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, 254 - hover_off, label.." ", font, alignment, scale, data.outline)
+		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, color.a - hover_off, label.." ", font, alignment, scale, data.outline)
 	end
 end)
 framework.elements.double_check_box = (function(data)
-	framework.elements.check_box({label = "", state = data.state})
+	local disabled = data.disabled or false
+	framework.elements.check_box({label = "", state = data.state, disabled = disabled})
 	framework.elements.push_back()
-	framework.elements.text_control({label = data.label, func = data.func})
+	framework.elements.text_control({label = data.label, func = data.func, disabled = disabled})
 end)
 local dragged = {}
 framework.elements.slider_int = (function(data)
@@ -349,13 +375,14 @@ framework.elements.slider_int = (function(data)
 	
 	local font = data.font or 0
 	local scale = data.scale or 0.23
-	local color = data.color or {r = 225, g = 225, b = 225}
+	local color = data.color or {r = 225, g = 225, b = 225, a = 254}
+	local disabled = data.disabled or false
 	local hover_off = 30
-	local additive = framework.groupboxes.scroll_y[framework.elements.second_groupbox and 2 or 1]
+	local additive = framework.groupboxes.scroll_y[framework.elements.second_column and 2 or 1]
 	framework.elements.previous_item = framework.elements.item
 	framework.elements.item.y = framework.elements.item.y + 20
 	framework.elements.item.w = 265
-	if (framework.elements.second_groupbox) then
+	if (framework.elements.second_column) then
 		framework.elements.item.x = framework.windows.main.wht-260
 	end
 
@@ -364,20 +391,26 @@ framework.elements.slider_int = (function(data)
 	if (v1.y-v2.y > -20 or v1.y-v2.y < -525) then 
 		return 
 	end
+	if (disabled) then 
+		color.a = color.a - 70
+	end
 	local percentagedv = framework.mathematics.to_percentage(current_value, data.max)
 	local width_to_fill = framework.mathematics.slider_percentage(percentagedv, framework.elements.item.w-2)
 	framework.renderer.draw_rect(v2.x - 2, v2.y, framework.elements.item.w, 13, 26, 26, 26, 254)
 	framework.renderer.draw_rect(v2.x, v2.y + 2, width_to_fill, 9, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
-	framework.renderer.draw_text(v2.x + width_to_fill, v2.y, color.r, color.g, color.b, 254, tostring(current_value), font, 0, scale, data.outline)
+	framework.renderer.draw_text(v2.x + width_to_fill, v2.y, color.r, color.g, color.b, color.a, tostring(current_value), font, 0, scale, data.outline)
 	
-	local hovered = (framework.renderer.hovered(v2.x, v2.y, framework.elements.item.w, 15))
-	if (hovered) then
+	local hovered = (framework.renderer.hovered(v2.x, v2.y, framework.elements.item.w + 2, 15 + 2))
+	if (hovered and not disabled) then
 		if (not framework.vars.dragged_window.state) then
 			if (IsDisabledControlJustPressed(0, 24)) then
 				dragged[state] = true
 			end
 			if (not IsDisabledControlPressed(0, 24)) then
 				dragged[state] = false
+			end
+			if (IsDisabledControlJustPressed(0, 25)) then
+				current_value = data.default
 			end
 		end
 		
@@ -401,7 +434,7 @@ framework.elements.reset = (function()
 end)
 
 framework.elements.tabs_props = {[1] = 70, [2] = 0}
-framework.elements.tabs_data = {"user", "weapon", "vehicle", "visual", "world", "players", "events", "streamed", "settings"}
+framework.elements.tabs_data = {"user", "weapon", "vehicle", "visual", "world", "online", "events", "streamed", "settings"}
 framework.renderer.draw_window = (function(name)
 	local draw_rect = framework.renderer.draw_rect
 	local draw_text = framework.renderer.draw_text
@@ -416,9 +449,10 @@ framework.renderer.draw_window = (function(name)
 
 	local v2 = 20
 	draw_rect(v1.x-(v2/2)-70+1, v1.y-(v2/2)-15+1, v1.w+v2+70-2, v1.h+v2+15-2, 20, 20, 20, 254)
+	draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2+2, v1.w+v2+70, 1, 5, 5, 5, 254)
 	draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2, v1.w+v2+70, 1, 35, 35, 35, 254)
 	draw_text(v1.x-(v2/2)-70+2.5, v1.y-(v2/2)-15-1.5, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, 254, "DEMONIZED", 2, false, 0.30, true)
-	draw_text(v1.x-(v2/2)+620, v1.y-(v2/2)-15-1.5, 154, 154, 154, 154, ("b[28.09.23]"), 0, 2, 0.28, true)
+	draw_text(v1.x-(v2/2)+620, v1.y-(v2/2)-15-1.5, 154, 154, 154, 154, ("c[07.12.24]"), 0, 2, 0.28, true)
 	--[[framework.renderer.draw_sprite("demonized", framework.vars.random_str, v1.x, v1.y-49, 201, 66, 0.0, 254, 254, 254, 254)]]
 
 	draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-13, 54, 254, 54, 154, tostring(garbage).."Kb", 0, false, 0.21, true)
@@ -521,7 +555,7 @@ framework.renderer.draw_window = (function(name)
 end)
 
 framework.renderer.finish_drawing = (function()
-	framework.elements.second_groupbox = false
+	framework.elements.second_column = false
 	framework.elements.reset()
 	DisableAllControlActions(0)
 	SetMouseCursorActiveThisFrame()
@@ -558,7 +592,14 @@ local game = {
 }
 framework.cache.addon_vehicles = {}
 framework.cache.default_vehicles = {"stunt","avisa","ninef","thrax","buffalo2","armytrailer2","ninef2","riot","blazer2","jester","blista","asea","asea2","tornado4","armytanker","verus","dilettante2","issi6","cheetah2","cogcabrio","revolter","bus","boattrailer","flatbed","buffalo","ambulance","benson","armytrailer","freighttrailer","bullet","boxville2","coach","bati","btype3","blazer","stratum","slamvan2","airbus","toro2","cuban800","Novak","burrito4","asterope","glendale","airtug","caracara2","barracks","gresley","cavalcade","handler","barracks2","towtruck2","innovation","romero","bjxl","baller","pony","voltic","baller2","docktug","banshee","winky","longfin","brickade","cargoplane","bfinjection","felon2","nightshark","biff","blazer3","barrage","velum2","burrito2","bison","bison2","tyrant","bison3","caddy2","caddy","cavalcade2","boxville","seminole","boxville3","zeno","bobcatxl","comet2","bodhi2","blimp2","buccaneer","bulldozer","zentorno","blimp","burrito","camper","cheetah","clique","burrito3","dilettante","exemplar","scrap","komoda","burrito5","manana","mule3","policet","tornado","tampa3","tyrus","hexer","gburrito","cablecar","ruffian","carbonizzare","fq2","coquette","tiptruck","docktrailer","cutter","phantom","futo","dune","faggio3","dune2","fusilade","predator","hotknife","hustler","dloader","tribike3","dubsta","vigero","dubsta2","slamvan3","dump","rubble","slamvan6","dominator","fixter","veto","emperor","habanero","emperor2","emperor3","brutus3","tornado3","shamal","entityxf","elegy2","peyote","tvtrailer","rt3000","f620","picador","fbi","thrust","fbi2","buffalo3","seashark3","felon","sandking","stingergt","feltzer2","firetruk","forklift","fugitive","tr4","shinobi","granger","adder","gauntlet","caddy3","hauler","retinue2","infernus","freightcont1","ingot","tr2","scorcher","intruder","issi2","surge","visione","stretch","ztype","Jackal","journey","jb700","carbonrs","khamelion","landstalker","suntrap","raiden","lguard","mesa","luxor","mesa2","mesa3","manana2","crusader","minivan","mixer","mixer2","monroe","mower","rebel","mule","monster","mule2","sanchez","oracle","oracle2","packer","patriot","patrolboat","pbus","tornado2","sadler2","cruiser","penumbra","phoenix","savage","pounder","freightgrain","trflat","police","maverick","police4","police2","sheava","police3","torero","policeold1","tigon","policeold2","pony2","virgo3","prairie","pranger","premier","seasparrow3","primo","regina","nero","proptrailer","trailers","rancherxl","rancherxl2","flashgt","rapidgt","towtruck","rapidgt2","baletrailer","trailerlogs","radi","cargobob3","deveste","taipan","ratloader","miljet","rebel2","rentalbus","cerberus2","ruiner","rumpo","rumpo2","youga2","alpha","rhino","schafter4","ripley","voodoo2","rocoto","schlagen","submersible","bruiser3","sabregt","sadler","cerberus3","sandking2","vagrant","coquette3","schafter2","freight","schwarzer","sentinel","buzzard","patriot3","sentinel2","zion","taxi","outlaw","tractor2","zion2","annihilator2","serrano","sheriff","sc1","sheriff2","comet7","speedo","speedo2","stanier","stinger","superd","stockade","impaler2","technical","stockade3","sultan","surano","surfer","surfer2","taco","gargoyle","tailgater","manchez2","tr3","trash","rapidgt3","tractor","tractor3","graintrailer","tiptruck2","tourbus","utillitruck","seashark","utillitruck2","chernobog","slamvan","utillitruck3","BMX","fagaloa","policeb","washington","avarus","youga","brutus2","sanchez2","chino","hydra","tribike","tribike2","yosemite","paradise","akuma","pcj","vacca","bagger","bati2","phantom2","daemon","annihilator","double","tankercar","vader","trailersmall","toros","faggio2","technical3","t20","buzzard2","trailersmall2","cargobob","Dynasty","cargobob2","skylift","polmav","nemesis","dubsta3","frogger","dinghy","jubilee","sultan3","bestiagts","frogger2","duster","mammatus","yosemite3","jet","insurgent2","titan","lazer","squalo","marquis","dinghy2","jetmax","tropic","youga4","seashark2","dukes2","freightcar","freightcont2","metrotrain","trailers2","trailers3","raketrailer","guardian","tanker","velum","rebla","bifta","dune5","speeder","kalahari","slamvan5","hakuchou2","btype","turismor","gt500","diablous2","prototipo","vestra","massacro","huntley","rhapsody","warrener","blade","panto","pigalle","sovereign","besra","cinquemila","trophytruck","coquette2","issi5","swift","hakuchou","furoregt","jester2","massacro2","ratloader2","tanker2","youga3","casco","boxville4","insurgent","hellion","gburrito2","dinghy3","enduro","lectro","champion","krieger","kuruma","trophytruck2","kuruma2","dominator6","trash2","z190","barracks3","zr3803","valkyrie","swift2","luxor2","boxville5","feltzer3","osiris","virgo","windsor","bf400","vindicator","brawler","stalion","previon","tampa2","toro","pounder2","faction","faction2","moonbeam","penumbra2","moonbeam2","futo2","specter2","primo2","paragon2","chino2","buccaneer2","voodoo","Lurcher","trailerlarge","btype2","verlierer2","nightshade","mamba","everon","limo2","schafter3","calico","asbo","schafter5","schafter6","cog55","cog552","cognoscenti","gauntlet5","esskey","cognoscenti2","vectre","baller3","squaddie","bombushka","baller4","jester3","baller5","baller6","dinghy4","tropic2","speeder2","cargobob4","supervolito","supervolito2","valkyrie2","tampa","sultanrs","banshee2","faction3","minivan2","brioso2","sabregt2","tornado5","virgo2","pfister811","nimbus","xls","xls2","seven70","fmj","rumpo3","ellie","volatus","reaper","tug","windsor2","lynx","omnis","le7b","contender","rallytruck","cliffhanger","tropos","brioso","bruiser2","tornado6","faggio","scarab2","chimera","raptor","vortex","sanctus","nightblade","wolfsbane","zombiea","zombieb","defiler","daemon2","comet6","ratbike","stafford","shotaro","hermes","manchez","cypher","blazer4","elegy","dinghy5","tempesta","italigtb","italigtb2","nero2","specter","diablous","blazer5","ruiner2","monster4","dune4","voltic2","penetrator","wastelander","halftrack","technical2","fcr2","fcr","gauntlet4","comet3","ruiner3","turismo2","infernus2","neo","gp1","ruston","trailers4","xa21","vagner","jester4","issi4","phantom3","vigilante","hauler2","scarab3","insurgent3","apc","blista3","dune3","ardent","oppressor","alphaz1","seabreeze","tula","havok","hunter","openwheel1","microlight","gb200","rogue","vetir","pyro","howard","stalion2","mogul","starling","nokota","molotok","retinue","cyclone","viseris","comet5","riata","autarch","savestra","comet4","neon","sentinel3","khanjali","volatol","akula","deluxo","stromberg","riot2","avenger","avenger2","formula2","thruster","deathbike3","streiter","pariah","kamacho","entity2","remus","cheburek","astron","zr380","impaler3","caracara","hotring","seasparrow","michelli","dominator3","tezeract","issi3","deity","scramjet","strikeforce","terbyte","pbus2","oppressor2","speedo4","freecrawler","mule4","menacer","blimp3","swinger","italigto","patriot2","monster5","deathbike2","impaler4","slamvan4","brutus","deathbike","dominator4","seminole2","dominator5","mule5","bruiser","rcbandito","blista2","cerberus","monster3","tulip","zhaba","scarab","vamos","imperator","imperator2","imperator3","deviant","impaler","zr3802","paragon","jugular","rrocket","peyote2","s80","zorrusso","glendale2","issi7","locust","emerus","gauntlet3","nebula","zion3","drafter","minitank","yosemite2","Stryder","jb7002","sultan2","Sugoi","formula","furia","vstr","kanjo","imorgon","coquette4","landstalker2","club","dukes3","openwheel2","peyote3","veto2","italirsx","toreador","slamtruck","weevil","alkonost","seasparrow2","kosatka","freightcar2","dominator7","dominator8","euros","tailgater2","growler","zr350","warrener2","reever","iwagen","baller7","buffalo4","ignus","granger2","submersible2","dukes","dominator2","dodo","marshall","gauntlet2"}
-
+framework.cache.ex_grenades = {
+	[GetHashKey("w_ex_grenadefrag")] = "Frag Grenade",
+	[GetHashKey("w_ex_pe")] = "Proximity Mine",
+	[GetHashKey("w_ex_apmine")] = "AP Mine",
+	[GetHashKey("w_ex_molotov")] = "Molotov",
+	[GetHashKey("w_ex_grenadesmoke")] = "Smoke Grenade",
+	[GetHashKey("w_lr_rpg_rocket")] = "RPG",
+}
 game.demonized.generators = {
 	player = (function(id)
 		local v1 = GetPlayerPed(id)
@@ -727,6 +768,56 @@ local drift_handling = {
 	["fTractionLossMult"] = 1.000000,
 }
 
+framework.elements.builder = (function(data)
+	local label = data.label or "builtstr"
+	local state = data.state or nil
+	local idx = data.index or data.idx or nil
+
+	if (data.type == "pb" or data.type == "push_back") then 
+		return framework.elements.push_back()
+	elseif (data.type == "gbl" or data.type == "groupbox_label") then 
+		return framework.elements.groupbox_label(idx, label)
+	elseif (data.type == "gbs" or data.type == "second_column") then 
+		framework.elements.second_column = true
+		return 1
+	elseif (data.type == "cb" or data.type == "check_box") then 
+		return framework.elements.check_box({label = label, state = state})
+	elseif (data.type == "dcb" or data.type == "double_check_box") then 
+		return framework.elements.double_check_box({label = label, state = state, func = data.func})
+	elseif (data.type == "tc" or data.type == "text_control") then 
+		return framework.elements.text_control({label = label, func = data.func or nil})
+	elseif (data.type == "r" or data.type == "reset") then 
+		return framework.elements.reset()
+	else
+		return write_to_console("de builder is unable to build bruh wtf is ", data.type)
+	end
+end)
+
+-- TODO mayb
+-- memory consumption for smoothness or sum idk
+framework.elementos = {
+	["user"] = {
+		{type="groupbox_label", label="primary", index=1},
+		{type="text_control", label="revive", func = (function() game.functions.revive_ped(game.demonized.ped) end)},
+		{type="text_control", label="suicide", func = (function() SetEntityHealth(game.demonized.ped, 0) end)},
+		{type="text_control", label="full health", func = (function() game.functions.set_ped_full_health(game.demonized.ped) end)},
+		{type="text_control", label="full armour", func = (function() game.functions.set_ped_full_armour(game.demonized.ped) end)},
+		{type="second_column"},
+		{type="reset"},
+		{type="groupbox_label", label="toggles", index=2},
+		{type="check_box", label="god mode", state="user_god_mode"},
+		{type="check_box", label="invisibility", state="user_invisibility"},
+		{type="double_check_box", label="never wanted", state="user_never_wanted", func = (function() ClearPlayerWantedLevel(game.demonized.id) end)},
+		{type="check_box", label="infinite stamina", state="user_infinite_stamina"},
+		{type="check_box", label="no ragdoll", state="user_no_ragdoll"},
+		{type="check_box", label="anti drown", state="user_anti_drown"},
+		{type="check_box", label="anti stun", state="user_anti_stun"},
+		{type="check_box", label="anti freeze", state="user_anti_freeze"},
+		{type="check_box", label="no clip", state="user_no_clip"},
+		{type="check_box", label="grief protection", state="user_grief_protection"}
+	}
+}
+
 --[[menu thread]]
 create_thread(function()
 	local thread = {
@@ -747,14 +838,16 @@ create_thread(function()
 				local current_tab = framework.vars.current_tab
 				framework.renderer.draw_window("main")
 				if (current_tab == "user") then
+					--for key, value in pairs(framework.elementos["user"]) do 
+					--	framework.elements.builder(value)
+					--end
 					framework.elements.groupbox_label(1, "primary")
 					text_control({label = "revive", func = (function() game.functions.revive_ped(game.demonized.ped) end)})
 					text_control({label = "suicide", func = (function() SetEntityHealth(game.demonized.ped, 0) end)})
 					text_control({label = "full health", func = (function() game.functions.set_ped_full_health(game.demonized.ped) end)})
 					text_control({label = "full armour", func = (function() game.functions.set_ped_full_armour(game.demonized.ped) end)})
-					framework.elements.slider_int({default = 25, min = 0, max = 500, state = "test_slider"})
 
-					framework.elements.second_groupbox = true
+					framework.elements.second_column = true
 					reset_elements()
 					
 					framework.elements.groupbox_label(2, "toggles")
@@ -788,7 +881,7 @@ create_thread(function()
 						check_box({label = "simulate input", state = "weapon_triggerbot_simulate"})
 					end
 
-					framework.elements.second_groupbox = true
+					framework.elements.second_column = true
 					reset_elements()
 
 					framework.elements.groupbox_label(2, "combat")
@@ -820,7 +913,7 @@ create_thread(function()
 					check_box({label = "rev limiter", state = "vehicle_rev_limiter"})
 					check_box({label = "boost controller", state = "vehicle_boost_controller"})
 					
-					framework.elements.second_groupbox = true
+					framework.elements.second_column = true
 					reset_elements()
 					
 					framework.elements.groupbox_label(2, "personal")
@@ -893,11 +986,12 @@ create_thread(function()
 					check_box({label = "is aiming", state = "visual_entity_aiming"})
 					check_box({label = "is talking", state = "visual_entity_talking"})
 					
-					framework.elements.second_groupbox = true
+					framework.elements.second_column = true
 					reset_elements()
 					
 					framework.elements.groupbox_label(2, "world")
 					check_box({label = "force thirdperson", state = "visual_force_thirdperson"})
+					check_box({label = "force crosshair", state = "visual_force_xhair"})
 					check_box({label = "force radar", state = "visual_force_radar"})
 					check_box({label = "grenade esp", state = "visual_grenade_esp"})
 					check_box({label = "lootbag esp", state = "visual_lootbag_esp"})
@@ -922,18 +1016,26 @@ create_thread(function()
 					double_check_box({label = "play sound nearby", state = "online_play_nearby_sound", func = game.cheats.play_sound_nearby})
 					double_check_box({label = "cause peds to scream", state = "online_peds_scream", func = game.cheats.cause_peds_to_scream})
 					double_check_box({label = "cause peds to cough", state = "online_peds_cough", func = game.cheats.cause_peds_to_cough})
-				elseif (current_tab == "players") then
-					framework.elements.groupbox_label(1, "online players")
+					
+					framework.elements.second_column = true
+					reset_elements()
+					
+					framework.elements.groupbox_label(2, "misc")
+					check_box({label = "override voice proximity", state = "misc_voice_override"})
+					framework.elements.slider_int({default = 5, min = 1, max = 10000, state = "misc_voice_proximity", disabled = not framework.config.misc_voice_override})
+
+				elseif (current_tab == "online") then
+					framework.elements.groupbox_label(1, "players")
 					for key, value in pairs(game.online_players) do 
 						local state = framework.cache.selected_player == key
 						text_control({label = string.format("[%s] %s", value.server_id, value.name), color = (state and framework.colors.theme or nil), 
 							func = (function() framework.cache.selected_player = key end)})
 					end
 
-					framework.elements.second_groupbox = true
+					framework.elements.second_column = true
 					reset_elements()
 					
-					framework.elements.groupbox_label(2, "options")
+					framework.elements.groupbox_label(2, "player options")
 					if (framework.cache.selected_player ~= nil and game.online_players[framework.cache.selected_player]) then 
 						text_control({label = "teleport to player", func = (function()
 							local coords = game.online_players[framework.cache.selected_player].coords
@@ -949,36 +1051,15 @@ create_thread(function()
 						text_control({label = "explode player using vehicle", func = (function()
 							create_thread(function() game.cheats.explode_player_via_vehicle(framework.cache.selected_player) end)
 						end)})
-						text_control({label = "", func = (function()
-							
-						end)})
-						text_control({label = "", func = (function()
-							
-						end)})
-						text_control({label = "", func = (function()
-							
-						end)})
-						text_control({label = "", func = (function()
-							
-						end)})
-						text_control({label = "", func = (function()
-							
-						end)})
-						text_control({label = "", func = (function()
-							
-						end)})
-						text_control({label = "", func = (function()
-							
-						end)})
-						text_control({label = "", func = (function()
+						text_control({label = "disabled element", disabled = true, func = (function()
 							
 						end)})
 					else
 						framework.cache.selected_player = nil
-						text_control({label = "please select a player to view options"})
+						text_control({label = "please select a player to view options", disabled = true})
 					end
 				elseif (current_tab == "events") then
-					framework.elements.groupbox_label(1, "captured events")
+					framework.elements.groupbox_label(1, "exploitable events")
 					text_control({label = "reload events", func = (function() create_thread(game.cheats.find_trigger_events) end)})
 					for name, value in pairs(framework.cache.dynamic_triggers) do 
 						if (value.trigger) then 
@@ -986,7 +1067,7 @@ create_thread(function()
 						end
 					end
 					
-					framework.elements.second_groupbox = true
+					framework.elements.second_column = true
 					reset_elements()
 					
 					framework.elements.groupbox_label(2, "functions")
@@ -1008,7 +1089,16 @@ create_thread(function()
 					check_box({label = "draw notifications", state = "settings_draw_notifications"})
 					check_box({label = "console logging", state = "settings_console_logging"})
 
-					framework.elements.second_groupbox = true
+					check_box({label = "xor string labels", state = "settings_xor_labels"})
+					check_box({label = "xor ideal amount", state = "settings_xor_ideal"})
+					if not (framework.config.settings_xor_ideal) then 
+						text_control({label = "xor letter amount"})
+						framework.elements.slider_int({default = 1, min = 1, max = 3, state = "settings_xor_letter"})
+					end
+					text_control({label = "xor thread time (ms)"})
+					framework.elements.slider_int({default = 500, min = 50, max = 3000, state = "settings_xor_thread_ms"})
+
+					framework.elements.second_column = true
 					reset_elements()
 					
 					framework.elements.groupbox_label(2, framework.cache.resource_count.." server resources")
@@ -1068,11 +1158,14 @@ create_thread(function()
 			check_box_handle("user_no_ragdoll")
 			if (config.user_no_ragdoll_toggled) then
 				local v1 = game.demonized.ped 
+				local v2 = game.demonized.id
 				if (IsPedRagdoll(v1) or IsPedRunningRagdollTask(v1)) then 
-					ClearPedTasksImmediately(v1)
+					SetPedRagdollOnCollision(v1, false)
+					GivePlayerRagdollControl(v2)
 				end 
 
 				if not (config.user_no_ragdoll) then
+					SetPedRagdollOnCollision(v1, true)
 					config.user_no_ragdoll_toggled = false
 				end
 			end
@@ -1096,7 +1189,7 @@ create_thread(function()
 			end
 			if (game.demonized.weapon) then 
 				if (config.weapon_triggerbot) then
-					local no_return_but_f_it = game.cheats.triggerbot()
+					game.cheats.triggerbot()
 				end
 				if (config.weapon_infinite_ammo) then
 					SetPedAmmo(game.demonized.ped, game.demonized.weapon, GetMaxAmmoInClip(game.demonized.ped, game.demonized.weapon, 1)-1)
@@ -1255,6 +1348,10 @@ create_thread(function()
                 SetFollowVehicleCamViewMode(1)
                 DisableFirstPersonCamThisFrame()
 			end
+			check_box_handle("visual_force_xhair")
+			if (config.visual_force_xhair_toggled) then
+				ShowHudComponentThisFrame(14)
+			end
 			check_box_handle("visual_force_radar")
 			if (config.visual_force_radar_toggled) then
 				DisplayRadar(config.visual_force_radar)
@@ -1262,10 +1359,10 @@ create_thread(function()
 			if (config.visual_grenade_esp) then 
 				for key, value in pairs(game.objects) do 
 					local model = value.model
-					if (model == 290600267) then 
+					if (framework.cache.ex_grenades[model]) then 
 						local base_coords = GetEntityCoords(value.handle)
 						SetDrawOrigin(base_coords)
-						framework.renderer.draw_text(0, 0, 254, 25, 25, 254, "grenade", 4, false, 0.20, true)
+						framework.renderer.draw_text(0, 0, 254, 25, 25, 254, framework.cache.ex_grenades[model], 4, false, 0.20, true)
 						ClearDrawOrigin()
 					end
 				end
@@ -1311,6 +1408,14 @@ create_thread(function()
 				SetPlayerStamina(v1, GetPlayerMaxStamina(v1)-math.random(5, 10))
 				if not (config.user_infinite_stamina) then
 					config.user_infinite_stamina_toggled = false
+				end
+			end
+			check_box_handle("misc_voice_override")
+			if (config.misc_voice_override_toggled) then
+				NetworkSetTalkerProximity(framework.config.misc_voice_proximity + 0.0)
+				if not (config.misc_voice_override) then
+					NetworkSetTalkerProximity(5.0)
+					config.misc_voice_override_toggled = false
 				end
 			end
 			if (game.demonized.vehicle) then
@@ -1582,8 +1687,8 @@ end)
 game.functions.keyboard_input = (function(data)
     framework.renderer.should_pause_rendering = true
     DisableAllControlActions(0)
-    AddTextEntry("FMMC_KEY_TIP1", data.text or "")
-    DisplayOnscreenKeyboard(1, "FMMC_KEY_TIP1", "", data.default or "", "", "", "", data.max_length or 24)
+    AddTextEntry("demonzed_input", data.text or "")
+    DisplayOnscreenKeyboard(1, "demonzed_input", "", data.default or "", "", "", "", data.max_length or 24)
 
     while (UpdateOnscreenKeyboard() == 0) do
         if (IsDisabledControlPressed(0, 322)) then 
@@ -1721,8 +1826,8 @@ game.functions.sync_entity = (function(entity, to_entity)
 				if (to_entity) then
 					SetNetworkIdSyncToPlayer(id, to_entity, true)
 				else
-					for _, v1 in pairs(game.online_players) do
-						SetNetworkIdSyncToPlayer(id, v1, true)
+					for _, value in pairs(game.online_players) do
+						SetNetworkIdSyncToPlayer(id, value.ped, true)
 					end
 				end
             end
@@ -1961,11 +2066,11 @@ game.cheats.bug_players_vehicle = (function()
 		local CreateObject = CreateObject
 		local GetEntityCoords = GetEntityCoords
 		local AttachEntityToEntity = AttachEntityToEntity
-		for _, v1 in pairs(game.online_players) do
-			local v2 = GetPlayerPed(v1)
+		for _, value in pairs(game.online_players) do
+			local v2 = value.ped
 			local v3 = GetHashKey("prop_cigar_02")
 			if (HasModelLoaded(v3)) then
-				local v4 = CreateObject(v3, GetEntityCoords(v2), true, true)
+				local v4 = CreateObject(v3, value.coords, true, true)
 				AttachEntityToEntity(v4, v2, 0, 0, 0, 0, 0, 0, 0, false, false, true, false, 0, true)
 				game.functions.sync_entity(v4)
 			else
@@ -1988,8 +2093,8 @@ game.cheats.attach_vehicles_on_players = (function()
 	create_thread(function() 
 		local GetPlayerPed = GetPlayerPed
 		local AttachEntityToEntity = AttachEntityToEntity
-		for _, v1 in pairs(game.online_players) do
-			local v2 = GetPlayerPed(v1)
+		for _, value in pairs(game.online_players) do
+			local v2 = value.ped
 			if (framework.config.settings_existing_entities) then
 				local vehicle = nil
 				for key, value in pairs(game.vehicles) do 
@@ -2026,8 +2131,8 @@ game.cheats.prop_players = (function()
 		local CreateObject = CreateObject
 		local GetEntityCoords = GetEntityCoords
 		local AttachEntityToEntity = AttachEntityToEntity
-		for _, v1 in pairs(game.online_players) do
-			local v2 = GetPlayerPed(v1)
+		for _, value in pairs(game.online_players) do
+			local v2 = value.ped
 			if (framework.config.settings_existing_entities) then
 				local object = nil
 				for key, value in pairs(game.objects) do 
@@ -2083,7 +2188,7 @@ game.cheats.rain_vehicles_on_player = (function(player)
 	local coords = game.online_players[player].coords
 	local v2 = 0
 	for _, vehicle in pairs(game.vehicles) do 
-		if (v2 > 5) then 
+		if (v2 >= 5) then 
 			break 
 		end
 		if (game.functions.request_control_over_entity(vehicle, true)) then
@@ -2345,6 +2450,21 @@ create_thread(function()
 		previous_garbage = garbage
 		garbage = math.floor(collectgarbage("count"))
 		collectgarbage("collect")
+		wait(thread.time)
+	end
+	write_to_console(string.format("unloaded thread %s!", thread.label))
+	thread = nil
+	TerminateThisThread()
+end)
+
+create_thread(function()
+	local thread = {
+		time = framework.config.settings_xor_thread_ms,
+		label = "xor str"
+	}
+	while (framework.is_loaded) do
+		framework.cache.xor_labels = {}
+		thread.time = framework.config.settings_xor_thread_ms
 		wait(thread.time)
 	end
 	write_to_console(string.format("unloaded thread %s!", thread.label))
