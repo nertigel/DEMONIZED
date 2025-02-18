@@ -470,7 +470,7 @@ framework.renderer.draw_window = (function(name)
 	draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2+2, v1.w+v2+70, 1, 5, 5, 5, 254)
 	draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2, v1.w+v2+70, 1, 35, 35, 35, 254)
 	draw_text(v1.x-(v2/2)-70+2.5, v1.y-(v2/2)-15-1.5, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, 254, framework.elements.xor_label("DEMONIZED"), 2, false, 0.30, true)
-	draw_text(v1.x-(v2/2)+620, v1.y-(v2/2)-15-1.5, 154, 154, 154, 154, ("c[08.02.25]"), 0, 2, 0.28, true)
+	draw_text(v1.x-(v2/2)+620, v1.y-(v2/2)-15-1.5, 154, 154, 154, 154, ("c[17.02.25]"), 0, 2, 0.28, true)
 	--[[framework.renderer.draw_sprite("demonized", framework.vars.random_str, v1.x, v1.y-49, 201, 66, 0.0, 254, 254, 254, 254)]]
 
 	draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-13, 54, 254, 54, 154, tostring(garbage).."Kb", 0, false, 0.21, true)
