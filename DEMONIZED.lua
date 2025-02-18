@@ -20,11 +20,17 @@ local type = type
 local previous_garbage = 0
 local garbage = math.floor(collectgarbage("count"))
 
+--[[ useless if execution is isolated
 debug.getlocal = (function(name, value)
     return nil, tostring(math.random(1, 9999999999999))
 end)
+]]
 
-for key, value in pairs({"commonmenu", "heisthud", "mpweaponscommon", "mpweaponscommon_small", "mpweaponsgang0_small", "mpweaponsgang1_small", "mpweaponsgang0", "mpweaponsgang1", "mpweaponsunusedfornow", "mpleaderboard", "mphud", "mparrow", "pilotschool", "shared"}) do RequestStreamedTextureDict(value) end
+--[[ removed temp due to certain dicts being used as "decoy", meaning that loading them triggers menu usage on AC
+for key, value in pairs({"commonmenu", "heisthud", "mpweaponscommon", "mpweaponscommon_small", "mpweaponsgang0_small", "mpweaponsgang1_small", "mpweaponsgang0", "mpweaponsgang1", "mpweaponsunusedfornow", "mpleaderboard", "mphud", "mparrow", "pilotschool", "shared"}) do 
+	RequestStreamedTextureDict(value) 
+end
+]]
 
 local framework = {
 	is_loaded = true,
@@ -38,7 +44,7 @@ local framework = {
 		dragged_window = {state = false, old_x = nil, old_y = nil},
 		current_window = "main",
 		current_tab = "user",
-		random_str = "n"..math.random(999999),
+		random_str = "nertigel"..math.random(999999),
 		groupbox_labels = {[1] = "groupbox1", [2] = "groupbox2"},
 		is_developer = true
 	},
@@ -65,6 +71,7 @@ local framework = {
 		settings_existing_entities = true,
 		settings_console_logging = true,
 		settings_draw_notifications = true,
+		settings_use_sprites = false,
 		settings_xor_labels = true,
 		settings_xor_thread_ms = 1000,
 		settings_xor_letter = 1,
@@ -127,6 +134,9 @@ end)
 
 framework.renderer.draw_sprite = (function(txd, txn, x, y, w, h, hea, r, g, b, a)
 	if (framework.renderer.should_pause_rendering) then
+		return
+	end
+	if not (framework.config.settings_use_sprites) then 
 		return
 	end
 	local v1 = framework.vars.screen
@@ -290,7 +300,11 @@ framework.elements.check_box = (function(data)
 	framework.renderer.draw_rect(v2.x + framework.windows.main.wht-325, v2.y, 13, 13, 26, 26, 26, 254)
 	framework.renderer.draw_bordered_rect(v2.x + framework.windows.main.wht-325, v2.y, 13, 13, 35, 35, 35, 254)
 	if (config[state]) or (not_config_value and state) then
-		framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + framework.windows.main.wht-325 - 5, v2.y - 5, 23, 23, 0.0, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
+		if (framework.config.settings_use_sprites) then 
+			framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + framework.windows.main.wht-325 - 5, v2.y - 5, 23, 23, 0.0, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
+		else
+			framework.renderer.draw_rect(v2.x + framework.windows.main.wht-325, v2.y, 12, 12, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
+		end
 	end
 	local hovered = (framework.renderer.hovered(v2.x + framework.windows.main.wht-325, v2.y, 13, 13) or framework.renderer.hovered(v2.x, v2.y, framework.elements.item.w, 13))
 	if (hovered and not disabled) then
@@ -310,7 +324,11 @@ framework.elements.check_box = (function(data)
 				end
 			end
 		end
-		framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + framework.windows.main.wht-325 - 5, v2.y - 5, 23, 23, 0.0, 225, 225, 225, 155)
+		if (framework.config.settings_use_sprites) then
+			framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + framework.windows.main.wht-325 - 5, v2.y - 5, 23, 23, 0.0, 225, 225, 225, 155)
+		else
+			framework.renderer.draw_rect(v2.x + framework.windows.main.wht-325, v2.y, 12, 12, 225, 225, 225, 155)
+		end
 	else
 		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, color.a - hover_off, label, font, false, scale, data.outline)
 	end
@@ -451,7 +469,7 @@ framework.renderer.draw_window = (function(name)
 	draw_rect(v1.x-(v2/2)-70+1, v1.y-(v2/2)-15+1, v1.w+v2+70-2, v1.h+v2+15-2, 20, 20, 20, 254)
 	draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2+2, v1.w+v2+70, 1, 5, 5, 5, 254)
 	draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2, v1.w+v2+70, 1, 35, 35, 35, 254)
-	draw_text(v1.x-(v2/2)-70+2.5, v1.y-(v2/2)-15-1.5, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, 254, "DEMONIZED", 2, false, 0.30, true)
+	draw_text(v1.x-(v2/2)-70+2.5, v1.y-(v2/2)-15-1.5, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, 254, framework.elements.xor_label("DEMONIZED"), 2, false, 0.30, true)
 	draw_text(v1.x-(v2/2)+620, v1.y-(v2/2)-15-1.5, 154, 154, 154, 154, ("c[08.02.25]"), 0, 2, 0.28, true)
 	--[[framework.renderer.draw_sprite("demonized", framework.vars.random_str, v1.x, v1.y-49, 201, 66, 0.0, 254, 254, 254, 254)]]
 
@@ -459,7 +477,7 @@ framework.renderer.draw_window = (function(name)
 	draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542, 254, 54, 54, 154, tostring(previous_garbage).."Kb", 0, false, 0.21, true)
 
 	local v3 = framework.renderer.get_text_width("DEMONIZED", 2, 0.30)
-	draw_text(v1.x-(v2/2)-70+v3-2, v1.y-(v2/2)-15-1.5+4, 154, 154, 154, 154, ".lua", 0, false, 0.21, true)
+	draw_text(v1.x-(v2/2)-70+v3-2, v1.y-(v2/2)-15-1.5+4, 154, 154, 154, 154, framework.elements.xor_label(".lua | github.com/nertigel"), 0, false, 0.21, true)
 
 	draw_bordered_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15, v1.w+v2+70, v1.h+v2+15, 35, 35, 35, 254)
 	draw_bordered_rect(v1.x-(v2/2)-70-1, v1.y-(v2/2)-15-1, v1.w+v2+70+2, v1.h+v2+15+2, 1, 1, 1, 254)
@@ -599,6 +617,17 @@ framework.cache.ex_grenades = {
 	[GetHashKey("w_ex_molotov")] = "Molotov",
 	[GetHashKey("w_ex_grenadesmoke")] = "Smoke Grenade",
 	[GetHashKey("w_lr_rpg_rocket")] = "RPG",
+}
+framework.cache.ex_cannabis = {
+	[GetHashKey("bkr_prop_weed_01_small_01a")] = 1,
+	[GetHashKey("bkr_prop_weed_01_small_01b")] = 1,
+	[GetHashKey("bkr_prop_weed_01_small_01c")] = 1,
+	[GetHashKey("bkr_prop_weed_lrg_01a")] = 1,
+	[GetHashKey("bkr_prop_weed_lrg_01b")] = 1,
+	[GetHashKey("bkr_prop_weed_med_01a")] = 1,
+	[GetHashKey("bkr_prop_weed_med_01b")] = 1,
+	[GetHashKey("prop_weed_01")] = 1,
+	[GetHashKey("prop_weed_02")] = 1,
 }
 game.demonized.generators = {
 	player = (function(id)
@@ -994,6 +1023,7 @@ create_thread(function()
 					check_box({label = "force crosshair", state = "visual_force_xhair"})
 					check_box({label = "force radar", state = "visual_force_radar"})
 					check_box({label = "grenade esp", state = "visual_grenade_esp"})
+					check_box({label = "cannabis esp", state = "visual_cannabis_esp"})
 					check_box({label = "lootbag esp", state = "visual_lootbag_esp"})
 					
 				elseif (current_tab == "world") then
@@ -1063,7 +1093,7 @@ create_thread(function()
 					text_control({label = "reload events", func = (function() create_thread(game.cheats.find_trigger_events) end)})
 					for name, value in pairs(framework.cache.dynamic_triggers) do 
 						if (value.trigger) then 
-							text_control({label = string.format("%s", name)})
+							text_control({label = string.format("%s: %s", name, value.trigger)})
 						end
 					end
 					
@@ -1087,6 +1117,7 @@ create_thread(function()
 					check_box({label = "use existing entities over creation", state = "settings_existing_entities"})
 					check_box({label = "draw stored data", state = "settings_stored_data"})
 					check_box({label = "draw notifications", state = "settings_draw_notifications"})
+					check_box({label = "use sprites in drawing", state = "settings_use_sprites"})
 					check_box({label = "console logging", state = "settings_console_logging"})
 
 					check_box({label = "xor string labels", state = "settings_xor_labels"})
@@ -1367,6 +1398,17 @@ create_thread(function()
 					end
 				end
 			end
+			if (config.visual_cannabis_esp) then 
+				for key, value in pairs(game.objects) do 
+					local model = value.model
+					if (framework.cache.ex_cannabis[model]) then 
+						local base_coords = GetEntityCoords(value.handle)
+						SetDrawOrigin(base_coords)
+						framework.renderer.draw_text(0, 0, 25, 254, 25, 254, "cannabis", 4, false, 0.20, true)
+						ClearDrawOrigin()
+					end
+				end
+			end
 			if (config.visual_lootbag_esp) then 
 				for key, value in pairs(game.objects) do 
 					local model = value.model
@@ -1496,7 +1538,6 @@ end)
 --[[notification thread]]
 create_thread(function()
 	push_notification("~w~Welcome to ~s~DEMONIZED", 11000, framework.colors.theme)
-	push_notification("this is just a name/word/myth, don't take it personal", 10000)
 	push_notification("to be used with vSync @ 60 fps", 10000)
 	push_notification("Press ~y~SCROLLWHEEL~s~(Mouse) or ~y~Y~s~(Controller) to open/close", 15000)
 	push_notification("github.com/nertigel", 350000)
@@ -1516,7 +1557,7 @@ create_thread(function()
 							table.remove(framework.renderer.notifications, key)
 						end
 						
-						framework.renderer.draw_text(0, ((framework.vars.screen.h-10)+v1)-(#framework.renderer.notifications*13), notification.color.r, notification.color.g, notification.color.b, 254, notification.label, 0, false, 0.23, true)
+						framework.renderer.draw_text(0, ((framework.vars.screen.h-10)+v1)-(#framework.renderer.notifications*13), notification.color.r, notification.color.g, notification.color.b, 254, framework.elements.xor_label(notification.label), 0, false, 0.23, true)
 						v1 = v1 + 13
 					end
 				end
@@ -1687,8 +1728,8 @@ end)
 game.functions.keyboard_input = (function(data)
     framework.renderer.should_pause_rendering = true
     DisableAllControlActions(0)
-    AddTextEntry("demonzed_input", data.text or "")
-    DisplayOnscreenKeyboard(1, "demonzed_input", "", data.default or "", "", "", "", data.max_length or 24)
+    AddTextEntry(string.format("%s_input", framework.vars.random_str), data.text or "")
+    DisplayOnscreenKeyboard(1, string.format("%s_input", framework.vars.random_str), "", data.default or "", "", "", "", data.max_length or 24)
 
     while (UpdateOnscreenKeyboard() == 0) do
         if (IsDisabledControlPressed(0, 322)) then 
