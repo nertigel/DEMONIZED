@@ -5,6 +5,16 @@ heavily modified version of [local_player.lua](https://github.com/nertigel/local
 
 ## Changelog
 
+[ c19.02.25 ]
+- Little code cleanup
+- Changed default resolution to 1920x1080
+- Added anti-untrusted to help prevent using features that may trigger AC
+- Added bypass for anti-drawing/gfx pos garbage found in popular ACs
+- Added rainbow mode - changes theme colour smoothly with a slider to adjust speed
+- Added more garbage for developer mode
+- Removed Ham calls
+- Removed voice proximity
+
 [ c17.02.25 ]
 - Enhanced undetection(removed pre-loading all sprites)
 - Sprites are not drawn by default now unless we tick "use sprites in drawing" on
