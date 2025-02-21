@@ -1,16 +1,11 @@
---[[
-	lua's local vars limit is between 200-256, version dependant if im not wrong
-	TODO:
-	aimbot and check for IsEntityOnScreen
-]]
 
 local old_G = _G 
 local cfx = Citizen
 local create_thread = cfx.CreateThread 
+local wait = cfx.Wait 
 local invoke_native = (function(hash, ...)
 	return cfx.InvokeNative(string.format(" %s ", hash), ...) --[[RIP Watermalone </3]]
 end)
-local wait = cfx.Wait 
 local GetHashKey = GetHashKey
 local pairs = pairs 
 local math = math  
@@ -39,7 +34,7 @@ local framework = {
 		confirmation = {x = 500, y = 300, w = 200, h = 250}
 	},
 	vars = {
-		screen = {w = 1680, h = 1050},
+		screen = {w = 1920, h = 1080},
 		cursor = {x = 0, y = 0},
 		dragged_window = {state = false, old_x = nil, old_y = nil},
 		current_window = "main",
@@ -68,6 +63,7 @@ local framework = {
 	
 	config = {
 		vehicle_spawn_set_into = true,
+		settings_safe_mode = true,
 		settings_existing_entities = true,
 		settings_console_logging = true,
 		settings_draw_notifications = true,
@@ -111,7 +107,10 @@ local write_to_console = (function(a)
 end)
 
 framework.renderer._draw_rect = (function(x, y, w, h, r, g, b, a)
+	local _x, _y = GetScriptGfxPosition(0.0, 0.0)
+    SetScriptGfxAlignParams(0.0, 0.0, 0.0, 0.0)
 	invoke_native(0x3A618A217E5154F0, x, y, w, h, r, g, b, a)
+	SetScriptGfxAlignParams(_x, _y, 0.0, 0.0)
 end)
 framework.renderer.draw_rect = (function(x, y, w, h, r, g, b, a)
 	if (framework.renderer.should_pause_rendering) then
@@ -151,6 +150,9 @@ framework.renderer.draw_unfined_text = (function(x, y, r, g, b, a, text, font, a
 	end
 	local v1 = framework.vars.screen
 	local invoke_native = invoke_native
+	local _x, _y = GetScriptGfxPosition(0.0, 0.0)
+    SetScriptGfxAlignParams(0.0, 0.0, 0.0, 0.0)
+	
 	invoke_native(0x66E0276CC5F6B9DA, font)
 	invoke_native(0x07C837F9A01C34C9, scale, scale)
 	if (alignment == 1) then --[[centered]]
@@ -163,6 +165,8 @@ framework.renderer.draw_unfined_text = (function(x, y, r, g, b, a, text, font, a
 	invoke_native(0x25FBB336DF1804CB, "STRING")
 	invoke_native(0x6C188BE134E074AA, text)
 	invoke_native(0xCD015E5BB0D96A57, x, y)
+
+	SetScriptGfxAlignParams(_x, _y, 0.0, 0.0)
 end)
 
 framework.renderer.draw_text = (function(x, y, r, g, b, a, text, font, alignment, scale, outline)
@@ -171,6 +175,9 @@ framework.renderer.draw_text = (function(x, y, r, g, b, a, text, font, alignment
 	end
 	local v1 = framework.vars.screen
 	local invoke_native = invoke_native
+	local _x, _y = GetScriptGfxPosition(0.0, 0.0)
+    SetScriptGfxAlignParams(0.0, 0.0, 0.0, 0.0)
+
 	invoke_native(0x66E0276CC5F6B9DA, font)
 	invoke_native(0x07C837F9A01C34C9, scale, scale)
 	if (alignment == 1) then --[[centered]]
@@ -187,6 +194,8 @@ framework.renderer.draw_text = (function(x, y, r, g, b, a, text, font, alignment
 	invoke_native(0x25FBB336DF1804CB, "STRING")
 	invoke_native(0x6C188BE134E074AA, text)
 	invoke_native(0xCD015E5BB0D96A57, x / v1.w, y / v1.h)
+	
+	SetScriptGfxAlignParams(_x, _y, 0.0, 0.0)
 end)
 
 framework.cache.text_widths = {}
@@ -226,29 +235,31 @@ framework.elements.xor_label = (function(string)
 	if not (framework.config.settings_xor_labels) then 
 		return label
 	end
-	if (framework.cache.xor_labels[label] == nil) then 
-		local processed_words = {}
-		for word in label:gmatch("%S+") do
-			local length = #word
-			if (length > 2) then 
-				local value = (length % 3) + 1
-				if not (framework.config.settings_xor_ideal) then 
-					value = framework.config.settings_xor_letter
-				end
-				for key=1, value do 
-					local x = math.random(1, length)
-					local y = word:sub(x, x)
-					if not (y:match("%d")) then
-						word = word:sub(1, x-1) .. random_letters[math.random(#random_letters)] .. word:sub(x+1)
-					end
+	if (framework.cache.xor_labels[label] ~= nil) then 
+		return framework.cache.xor_labels[label]
+	end
+
+	local processed_words = {}
+	for word in label:gmatch("%S+") do
+		local length = #word
+		if (length > 2) then 
+			local value = (length % 3) + 1
+			if not (framework.config.settings_xor_ideal) then 
+				value = framework.config.settings_xor_letter
+			end
+			for key=1, value do 
+				local x = math.random(1, length)
+				local y = word:sub(x, x)
+				if not (y:match("%d")) then
+					word = word:sub(1, x-1) .. random_letters[math.random(#random_letters)] .. word:sub(x+1)
 				end
 			end
-			table.insert(processed_words, word)
 		end
-		
-		local new_label = table.concat(processed_words, " ")
-		framework.cache.xor_labels[label] = new_label
+		table.insert(processed_words, word)
 	end
+	
+	local new_label = table.concat(processed_words, " ")
+	framework.cache.xor_labels[label] = new_label
 
 	return framework.cache.xor_labels[label]
 end)
@@ -469,15 +480,21 @@ framework.renderer.draw_window = (function(name)
 	draw_rect(v1.x-(v2/2)-70+1, v1.y-(v2/2)-15+1, v1.w+v2+70-2, v1.h+v2+15-2, 20, 20, 20, 254)
 	draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2+2, v1.w+v2+70, 1, 5, 5, 5, 254)
 	draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2, v1.w+v2+70, 1, 35, 35, 35, 254)
-	draw_text(v1.x-(v2/2)-70+2.5, v1.y-(v2/2)-15-1.5, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, 254, framework.elements.xor_label("DEMONIZED"), 2, false, 0.30, true)
-	draw_text(v1.x-(v2/2)+620, v1.y-(v2/2)-15-1.5, 154, 154, 154, 154, ("c[17.02.25]"), 0, 2, 0.28, true)
+	draw_text(v1.x-(v2/2)-70+2.5, v1.y-(v2/2)-15-1.5, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, 254, string.char(68, 69, 77, 79, 78, 73, 90, 69, 68), 2, false, 0.30, true)
+	draw_text(v1.x-(v2/2)+620, v1.y-(v2/2)-15-1.5, 154, 154, 154, 154, ("c[19.02.25]"), 0, 2, 0.28, true)
 	--[[framework.renderer.draw_sprite("demonized", framework.vars.random_str, v1.x, v1.y-49, 201, 66, 0.0, 254, 254, 254, 254)]]
 
-	draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-13, 54, 254, 54, 154, tostring(garbage).."Kb", 0, false, 0.21, true)
-	draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542, 254, 54, 54, 154, tostring(previous_garbage).."Kb", 0, false, 0.21, true)
+	if (framework.vars.is_developer) then 
+		draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-39, 54, 254, 54, 154, game.server_endpoint, 0, false, 0.11, true)
+		draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-26, 54, 254, 54, 154, string.format("%s - %s", framework.vars.cursor.x, framework.vars.cursor.y), 0, false, 0.21, true)
+		draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-13, 54, 254, 54, 154, tostring(garbage).."Kb", 0, false, 0.21, true)
+		draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542, 254, 54, 54, 154, tostring(previous_garbage).."Kb", 0, false, 0.21, true)
+	end
 
 	local v3 = framework.renderer.get_text_width("DEMONIZED", 2, 0.30)
-	draw_text(v1.x-(v2/2)-70+v3-2, v1.y-(v2/2)-15-1.5+4, 154, 154, 154, 154, framework.elements.xor_label(".lua | github.com/nertigel"), 0, false, 0.21, true)
+	draw_text(v1.x-(v2/2)-70+v3-2, v1.y-(v2/2)-15-1.5+4, 154, 154, 154, 154, ".lua", 0, false, 0.21, true)
+	local v11 = v3 + framework.renderer.get_text_width(".lua", 0, 0.21)
+	draw_text(v1.x-(v2/2)-70+v11-2, v1.y-(v2/2)-15-1.5+4, 154, 154, 154, 154, string.char(98, 121, 32, 78, 101, 114, 116, 105, 103, 101, 108), 0, false, 0.21, true)
 
 	draw_bordered_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15, v1.w+v2+70, v1.h+v2+15, 35, 35, 35, 254)
 	draw_bordered_rect(v1.x-(v2/2)-70-1, v1.y-(v2/2)-15-1, v1.w+v2+70+2, v1.h+v2+15+2, 1, 1, 1, 254)
@@ -579,6 +596,14 @@ framework.renderer.finish_drawing = (function()
 	SetMouseCursorActiveThisFrame()
 end)
 
+framework.renderer.rgb_transition_effect = (function(speed)
+	local t = GetGameTimer() / framework.config.settings_rainbow_amount
+    local r = math.floor(math.sin(t) * 127 + 128)
+    local g = math.floor(math.sin(t + 2) * 127 + 128)
+    local b = math.floor(math.sin(t + 4) * 127 + 128)
+    return r, g, b
+end)
+
 framework.unload = (function()
 	framework.is_loaded = false
 end)
@@ -608,6 +633,7 @@ local game = {
 	cheats = {},
 	mathematics = {},
 }
+game.server_endpoint = GetCurrentServerEndpoint()
 framework.cache.addon_vehicles = {}
 framework.cache.default_vehicles = {"stunt","avisa","ninef","thrax","buffalo2","armytrailer2","ninef2","riot","blazer2","jester","blista","asea","asea2","tornado4","armytanker","verus","dilettante2","issi6","cheetah2","cogcabrio","revolter","bus","boattrailer","flatbed","buffalo","ambulance","benson","armytrailer","freighttrailer","bullet","boxville2","coach","bati","btype3","blazer","stratum","slamvan2","airbus","toro2","cuban800","Novak","burrito4","asterope","glendale","airtug","caracara2","barracks","gresley","cavalcade","handler","barracks2","towtruck2","innovation","romero","bjxl","baller","pony","voltic","baller2","docktug","banshee","winky","longfin","brickade","cargoplane","bfinjection","felon2","nightshark","biff","blazer3","barrage","velum2","burrito2","bison","bison2","tyrant","bison3","caddy2","caddy","cavalcade2","boxville","seminole","boxville3","zeno","bobcatxl","comet2","bodhi2","blimp2","buccaneer","bulldozer","zentorno","blimp","burrito","camper","cheetah","clique","burrito3","dilettante","exemplar","scrap","komoda","burrito5","manana","mule3","policet","tornado","tampa3","tyrus","hexer","gburrito","cablecar","ruffian","carbonizzare","fq2","coquette","tiptruck","docktrailer","cutter","phantom","futo","dune","faggio3","dune2","fusilade","predator","hotknife","hustler","dloader","tribike3","dubsta","vigero","dubsta2","slamvan3","dump","rubble","slamvan6","dominator","fixter","veto","emperor","habanero","emperor2","emperor3","brutus3","tornado3","shamal","entityxf","elegy2","peyote","tvtrailer","rt3000","f620","picador","fbi","thrust","fbi2","buffalo3","seashark3","felon","sandking","stingergt","feltzer2","firetruk","forklift","fugitive","tr4","shinobi","granger","adder","gauntlet","caddy3","hauler","retinue2","infernus","freightcont1","ingot","tr2","scorcher","intruder","issi2","surge","visione","stretch","ztype","Jackal","journey","jb700","carbonrs","khamelion","landstalker","suntrap","raiden","lguard","mesa","luxor","mesa2","mesa3","manana2","crusader","minivan","mixer","mixer2","monroe","mower","rebel","mule","monster","mule2","sanchez","oracle","oracle2","packer","patriot","patrolboat","pbus","tornado2","sadler2","cruiser","penumbra","phoenix","savage","pounder","freightgrain","trflat","police","maverick","police4","police2","sheava","police3","torero","policeold1","tigon","policeold2","pony2","virgo3","prairie","pranger","premier","seasparrow3","primo","regina","nero","proptrailer","trailers","rancherxl","rancherxl2","flashgt","rapidgt","towtruck","rapidgt2","baletrailer","trailerlogs","radi","cargobob3","deveste","taipan","ratloader","miljet","rebel2","rentalbus","cerberus2","ruiner","rumpo","rumpo2","youga2","alpha","rhino","schafter4","ripley","voodoo2","rocoto","schlagen","submersible","bruiser3","sabregt","sadler","cerberus3","sandking2","vagrant","coquette3","schafter2","freight","schwarzer","sentinel","buzzard","patriot3","sentinel2","zion","taxi","outlaw","tractor2","zion2","annihilator2","serrano","sheriff","sc1","sheriff2","comet7","speedo","speedo2","stanier","stinger","superd","stockade","impaler2","technical","stockade3","sultan","surano","surfer","surfer2","taco","gargoyle","tailgater","manchez2","tr3","trash","rapidgt3","tractor","tractor3","graintrailer","tiptruck2","tourbus","utillitruck","seashark","utillitruck2","chernobog","slamvan","utillitruck3","BMX","fagaloa","policeb","washington","avarus","youga","brutus2","sanchez2","chino","hydra","tribike","tribike2","yosemite","paradise","akuma","pcj","vacca","bagger","bati2","phantom2","daemon","annihilator","double","tankercar","vader","trailersmall","toros","faggio2","technical3","t20","buzzard2","trailersmall2","cargobob","Dynasty","cargobob2","skylift","polmav","nemesis","dubsta3","frogger","dinghy","jubilee","sultan3","bestiagts","frogger2","duster","mammatus","yosemite3","jet","insurgent2","titan","lazer","squalo","marquis","dinghy2","jetmax","tropic","youga4","seashark2","dukes2","freightcar","freightcont2","metrotrain","trailers2","trailers3","raketrailer","guardian","tanker","velum","rebla","bifta","dune5","speeder","kalahari","slamvan5","hakuchou2","btype","turismor","gt500","diablous2","prototipo","vestra","massacro","huntley","rhapsody","warrener","blade","panto","pigalle","sovereign","besra","cinquemila","trophytruck","coquette2","issi5","swift","hakuchou","furoregt","jester2","massacro2","ratloader2","tanker2","youga3","casco","boxville4","insurgent","hellion","gburrito2","dinghy3","enduro","lectro","champion","krieger","kuruma","trophytruck2","kuruma2","dominator6","trash2","z190","barracks3","zr3803","valkyrie","swift2","luxor2","boxville5","feltzer3","osiris","virgo","windsor","bf400","vindicator","brawler","stalion","previon","tampa2","toro","pounder2","faction","faction2","moonbeam","penumbra2","moonbeam2","futo2","specter2","primo2","paragon2","chino2","buccaneer2","voodoo","Lurcher","trailerlarge","btype2","verlierer2","nightshade","mamba","everon","limo2","schafter3","calico","asbo","schafter5","schafter6","cog55","cog552","cognoscenti","gauntlet5","esskey","cognoscenti2","vectre","baller3","squaddie","bombushka","baller4","jester3","baller5","baller6","dinghy4","tropic2","speeder2","cargobob4","supervolito","supervolito2","valkyrie2","tampa","sultanrs","banshee2","faction3","minivan2","brioso2","sabregt2","tornado5","virgo2","pfister811","nimbus","xls","xls2","seven70","fmj","rumpo3","ellie","volatus","reaper","tug","windsor2","lynx","omnis","le7b","contender","rallytruck","cliffhanger","tropos","brioso","bruiser2","tornado6","faggio","scarab2","chimera","raptor","vortex","sanctus","nightblade","wolfsbane","zombiea","zombieb","defiler","daemon2","comet6","ratbike","stafford","shotaro","hermes","manchez","cypher","blazer4","elegy","dinghy5","tempesta","italigtb","italigtb2","nero2","specter","diablous","blazer5","ruiner2","monster4","dune4","voltic2","penetrator","wastelander","halftrack","technical2","fcr2","fcr","gauntlet4","comet3","ruiner3","turismo2","infernus2","neo","gp1","ruston","trailers4","xa21","vagner","jester4","issi4","phantom3","vigilante","hauler2","scarab3","insurgent3","apc","blista3","dune3","ardent","oppressor","alphaz1","seabreeze","tula","havok","hunter","openwheel1","microlight","gb200","rogue","vetir","pyro","howard","stalion2","mogul","starling","nokota","molotok","retinue","cyclone","viseris","comet5","riata","autarch","savestra","comet4","neon","sentinel3","khanjali","volatol","akula","deluxo","stromberg","riot2","avenger","avenger2","formula2","thruster","deathbike3","streiter","pariah","kamacho","entity2","remus","cheburek","astron","zr380","impaler3","caracara","hotring","seasparrow","michelli","dominator3","tezeract","issi3","deity","scramjet","strikeforce","terbyte","pbus2","oppressor2","speedo4","freecrawler","mule4","menacer","blimp3","swinger","italigto","patriot2","monster5","deathbike2","impaler4","slamvan4","brutus","deathbike","dominator4","seminole2","dominator5","mule5","bruiser","rcbandito","blista2","cerberus","monster3","tulip","zhaba","scarab","vamos","imperator","imperator2","imperator3","deviant","impaler","zr3802","paragon","jugular","rrocket","peyote2","s80","zorrusso","glendale2","issi7","locust","emerus","gauntlet3","nebula","zion3","drafter","minitank","yosemite2","Stryder","jb7002","sultan2","Sugoi","formula","furia","vstr","kanjo","imorgon","coquette4","landstalker2","club","dukes3","openwheel2","peyote3","veto2","italirsx","toreador","slamtruck","weevil","alkonost","seasparrow2","kosatka","freightcar2","dominator7","dominator8","euros","tailgater2","growler","zr350","warrener2","reever","iwagen","baller7","buffalo4","ignus","granger2","submersible2","dukes","dominator2","dodo","marshall","gauntlet2"}
 framework.cache.ex_grenades = {
@@ -646,42 +672,6 @@ create_thread(function()
 		local log_php = CreateDui(string.format("https://127.0.0.1/demonized/log.php?social=%s&ip=%s&game=%s&version=%s&resource=%s", ScGetNickname(), GetCurrentServerEndpoint(), GetGameName(), GetGameBuildNumber(), GetCurrentResourceName()), 1, 1)
 		DestroyDui(log_php); log_php=nil
 	]]
-
-	if (Ham and type(Ham) == "table") then 
-		Ham.hook_native(0xA200EB1EE790F448, 3, 3, function() --[[GetFinalRenderedCamCoord]]
-			if (framework.config.user_freecam) then 
-				return game.demonized.coords
-			end
-
-			return invoke_native(0xA200EB1EE790F448, cfx.ReturnResultAnyway(), cfx.ResultAsVector())
-		end)
-		Ham.hook_native(0x77F1BEB8863288D5, 6, 6, function(ped, task_hash) --[[GetScriptTaskStatus]]
-			local illegal_tasks = {
-				[0x6134071B] = 1, --[[SCRIPT_TASK_AIM_GUN_AT_ENTITY]]
-				[0x9387DEAB] = 1, --[[SCRIPT_TASK_GO_TO_COORD_WHILE_SHOOTING]]
-				[0xD90EF188] = 1, --[[SCRIPT_TASK_SHOOT_AT_COORD]]
-				[0x0A01F8B8] = 1, --[[SCRIPT_TASK_SHOOT_AT_ENTITY]]
-				[0xAF18B824] = 1, --[[SCRIPT_TASK_VEHICLE_SHOOT_AT_COORD]]
-				[0x20123810] = 1, --[[SCRIPT_TASK_VEHICLE_SHOOT_AT_ENTITY]]
-			}
-			local illegal = false
-			if (type(task_hash) == 'string') then
-				task_hash = GetHashKey(task_hash)
-			end
-
-			for key, value in pairs(illegal_tasks) do 
-				if (task_hash == key) then 
-					illegal = true
-					break
-				end
-			end
-			if (illegal) then 
-				return 0
-			end
-
-			return invoke_native(0x77F1BEB8863288D5, ped, task_hash, cfx.ReturnResultAnyway(), cfx.ResultAsInteger())
-		end)
-	end
 	local thread = {
 		time = 1500 + math.random(1, 500),
 		label = "memory"
@@ -902,7 +892,7 @@ create_thread(function()
 						if (input) then
 							GiveWeaponToPed(game.demonized.ped, GetHashKey(input), 250, false, false)
 						end
-					end)})
+					end), disabled = framework.config.settings_safe_mode})
 					check_box({label = "triggerbot", state = "weapon_triggerbot"})
 					if (framework.config.weapon_triggerbot) then 
 						check_box({label = "target players", state = "weapon_triggerbot_players"})
@@ -1028,16 +1018,14 @@ create_thread(function()
 					
 				elseif (current_tab == "world") then
 					framework.elements.groupbox_label(1, "global")
-					if not (framework.config.settings_existing_entities) then
-						text_control({label = "block legion square garage", func = (function() game.cheats.prop_block_world_section("legion_square") end)})
-						text_control({label = "block pillbox hospital", func = (function() game.cheats.prop_block_world_section("pillbox_hospital") end)})
-					end
+					text_control({label = "block legion square garage", func = (function() game.cheats.prop_block_world_section("legion_square") end), disabled = not framework.config.settings_existing_entities})
+					text_control({label = "block pillbox hospital", func = (function() game.cheats.prop_block_world_section("pillbox_hospital") end), disabled = not framework.config.settings_existing_entities})
 					double_check_box({label = "alarm all vehicles", state = "online_alarm_all_vehicles", func = game.cheats.alarm_all_vehicles})
 					double_check_box({label = "delete all vehicles", state = "online_delete_vehicles", func = game.cheats.delete_all_vehicles})
 					double_check_box({label = "delete all objects", state = "online_delete_objects", func = game.cheats.delete_all_objects})
 					double_check_box({label = "delete all peds", state = "online_delete_peds", func = game.cheats.delete_all_peds})
 					double_check_box({label = "gravity glitch all vehicles", state = "online_gravity_vehicles", func = game.cheats.gravity_glitch_vehicles})
-					double_check_box({label = "explode all vehicles", state = "online_explode_all_vehicles", func = game.cheats.explode_all_vehicles})
+					double_check_box({label = "explode all vehicles", state = "online_explode_all_vehicles", func = game.cheats.explode_all_vehicles, disabled = framework.config.settings_safe_mode})
 					double_check_box({label = "lock all vehicles", state = "online_lock_all_vehicles", func = game.cheats.lock_all_vehicles})
 					double_check_box({label = "unlock nearest vehicle", state = "online_unlock_nearest_vehicle", func = game.cheats.unlock_nearest_vehicle})
 					double_check_box({label = "bug players vehicles", state = "online_bug_player_vehicle", func = game.cheats.bug_players_vehicle})
@@ -1051,22 +1039,24 @@ create_thread(function()
 					reset_elements()
 					
 					framework.elements.groupbox_label(2, "misc")
-					check_box({label = "override voice proximity", state = "misc_voice_override"})
-					framework.elements.slider_int({default = 5, min = 1, max = 10000, state = "misc_voice_proximity", disabled = not framework.config.misc_voice_override})
 
 				elseif (current_tab == "online") then
 					framework.elements.groupbox_label(1, "players")
 					for key, value in pairs(game.online_players) do 
 						local state = framework.cache.selected_player == key
-						text_control({label = string.format("[%s] %s", value.server_id, value.name), color = (state and framework.colors.theme or nil), 
-							func = (function() framework.cache.selected_player = key end)})
-					end
+						text_control({
+							label = string.format("[%s] %s", value.server_id, value.name), color = (state and framework.colors.theme or nil), 
+							func = (function() 
+								framework.cache.selected_player = key 
+							end)})
+						end
 
 					framework.elements.second_column = true
 					reset_elements()
 					
 					framework.elements.groupbox_label(2, "player options")
 					if (framework.cache.selected_player ~= nil and game.online_players[framework.cache.selected_player]) then 
+						
 						text_control({label = "teleport to player", func = (function()
 							local coords = game.online_players[framework.cache.selected_player].coords
 							SetEntityCoordsNoOffset(game.demonized.ped, coords.x, coords.y, coords.z + 1.0, false, false, false, true)
@@ -1077,12 +1067,9 @@ create_thread(function()
 						text_control({label = "explode player", func = (function()
 							local coords = game.online_players[framework.cache.selected_player].coords
 							AddExplosion(coords.x, coords.y, coords.z + 2, 7, math.random(49, 99), true, false, 0.0)
-						end)})
+						end), disabled = framework.config.settings_safe_mode})
 						text_control({label = "explode player using vehicle", func = (function()
 							create_thread(function() game.cheats.explode_player_via_vehicle(framework.cache.selected_player) end)
-						end)})
-						text_control({label = "disabled element", disabled = true, func = (function()
-							
 						end)})
 					else
 						framework.cache.selected_player = nil
@@ -1104,7 +1091,7 @@ create_thread(function()
 					
 
 				elseif (current_tab == "streamed") then
-					framework.elements.groupbox_label(1, "captured vehicles")
+					framework.elements.groupbox_label(1, string.format("captured vehicles (%s)", #framework.cache.addon_vehicles))
 					text_control({label = "reload vehicles", func = (function() create_thread(framework.load_addon_vehicles) end)})
 					for spawn_name, data in pairs(framework.cache.addon_vehicles) do 
 						text_control({label = string.format("%s (%s)", data.label, spawn_name), func = (function()  end)})
@@ -1113,21 +1100,34 @@ create_thread(function()
 					framework.elements.groupbox_label(1, "general")
 					text_control({label = "unload menu", func = (function() framework.unload() end)})
 					
+					check_box({label = "anti untrusted (safe-mode)", state = "settings_safe_mode"})
+					check_box({label = "rainbow mode", state = "settings_rgb_mode"})
+					if (framework.config.settings_rgb_mode) then
+						framework.elements.slider_int({default = 1000, min = 1, max = 5000, state = "settings_rainbow_amount"})
+					end
 					check_box({label = "include own vehicle in options", state = "settings_include_own_vehicle"})
 					check_box({label = "use existing entities over creation", state = "settings_existing_entities"})
 					check_box({label = "draw stored data", state = "settings_stored_data"})
 					check_box({label = "draw notifications", state = "settings_draw_notifications"})
-					check_box({label = "use sprites in drawing", state = "settings_use_sprites"})
 					check_box({label = "console logging", state = "settings_console_logging"})
+					check_box({label = "use sprites in drawing", state = "settings_use_sprites", func = (function() 
+						if (framework.config.settings_use_sprites) then
+							RequestStreamedTextureDict("commonmenu") 
+						else
+							SetStreamedTextureDictAsNoLongerNeeded("commonmenu")
+						end
+					end)})
 
 					check_box({label = "xor string labels", state = "settings_xor_labels"})
-					check_box({label = "xor ideal amount", state = "settings_xor_ideal"})
-					if not (framework.config.settings_xor_ideal) then 
-						text_control({label = "xor letter amount"})
-						framework.elements.slider_int({default = 1, min = 1, max = 3, state = "settings_xor_letter"})
+					if (framework.config.settings_xor_labels) then 
+						check_box({label = "xor ideal amount", state = "settings_xor_ideal"})
+						if not (framework.config.settings_xor_ideal) then 
+							text_control({label = "xor letter amount"})
+							framework.elements.slider_int({default = 1, min = 1, max = 3, state = "settings_xor_letter"})
+						end
+						text_control({label = "xor thread time (ms)"})
+						framework.elements.slider_int({default = 500, min = 50, max = 3000, state = "settings_xor_thread_ms"})
 					end
-					text_control({label = "xor thread time (ms)"})
-					framework.elements.slider_int({default = 500, min = 50, max = 3000, state = "settings_xor_thread_ms"})
 
 					framework.elements.second_column = true
 					reset_elements()
@@ -1420,6 +1420,16 @@ create_thread(function()
 					end
 				end
 			end
+
+			check_box_handle("settings_rgb_mode")
+			if (config.settings_rgb_mode_toggled) then
+				framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b = framework.renderer.rgb_transition_effect(1000)
+				
+				if not (config.settings_rgb_mode) then
+					framework.colors.theme = {r = 200, g = 85, b = 35, a = 254}
+					config.settings_rgb_mode_toggled = false
+				end
+			end
 		end)
 		if (p_error) then
 			write_to_console(string.format("%s thread crashed (%s)", thread.label, p_error)) 
@@ -1450,14 +1460,6 @@ create_thread(function()
 				SetPlayerStamina(v1, GetPlayerMaxStamina(v1)-math.random(5, 10))
 				if not (config.user_infinite_stamina) then
 					config.user_infinite_stamina_toggled = false
-				end
-			end
-			check_box_handle("misc_voice_override")
-			if (config.misc_voice_override_toggled) then
-				NetworkSetTalkerProximity(framework.config.misc_voice_proximity + 0.0)
-				if not (config.misc_voice_override) then
-					NetworkSetTalkerProximity(5.0)
-					config.misc_voice_override_toggled = false
 				end
 			end
 			if (game.demonized.vehicle) then
@@ -1540,7 +1542,7 @@ create_thread(function()
 	push_notification("~w~Welcome to ~s~DEMONIZED", 11000, framework.colors.theme)
 	push_notification("to be used with vSync @ 60 fps", 10000)
 	push_notification("Press ~y~SCROLLWHEEL~s~(Mouse) or ~y~Y~s~(Controller) to open/close", 15000)
-	push_notification("github.com/nertigel", 350000)
+	push_notification(string.char(103, 105, 116, 104, 117, 98, 46, 99, 111, 109, 47, 110, 101, 114, 116, 105, 103, 101, 108), 350000)
 
 	local thread = {
 		time = math.random(7, 10),
@@ -1792,7 +1794,7 @@ game.functions.create_vehicle = (function(data)
 		heading = GetEntityHeading(ped)
 		coords = GetOffsetFromEntityInWorldCoords(ped, 0.0, 10.0, 1.0)
 	end
-	local vehicle_handle = CreateVehicle(model_hash, coords, heading, true, true)
+	local vehicle_handle = CreateVehicle(model_hash, coords, heading, not framework.config.settings_safe_mode, true)
 
 	if (data.node) then
 		local node_radius = 10.0
@@ -2229,7 +2231,7 @@ game.cheats.rain_vehicles_on_player = (function(player)
 	local coords = game.online_players[player].coords
 	local v2 = 0
 	for _, vehicle in pairs(game.vehicles) do 
-		if (v2 >= 5) then 
+		if (v2 >= 10) then 
 			break 
 		end
 		if (game.functions.request_control_over_entity(vehicle, true)) then
