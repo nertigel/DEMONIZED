@@ -31,7 +31,7 @@ local framework = {
 	is_loaded = true,
 	windows = {
 		main = {x = 1300, y = 300, w = 600, h = 550, wht = (600 + 550)/2},
-		confirmation = {x = 500, y = 300, w = 200, h = 250}
+		confirmation = {x = 500, y = 300, w = 200, h = 250, wht = (200 + 250)/2}
 	},
 	vars = {
 		screen = {w = 1920, h = 1080},
@@ -72,7 +72,30 @@ local framework = {
 		settings_xor_thread_ms = 1000,
 		settings_xor_letter = 1,
 	},
-	cache = {},
+	cache = {
+		blame_dragged_by = nil,
+		blame_carry = {
+			by = nil,
+			anim_dict = "nm",
+			anim = "firemans_carry",
+			attach_x = 0.27,
+			attach_y = 0.15,
+			attach_z = 0.63,
+			flag = 33,
+		}
+	},
+	events = {
+		{event = "anticheat:EntityWipe", cancel = true, handler = nil},
+		{event = "AntiCheese:RemoveInventoryWeapons", cancel = true, handler = nil},
+		{event = "wld:delallveh", cancel = true, handler = nil},
+		{event = "vehiclesDestructor", cancel = true, handler = nil},
+		{event = "EasyAdmin:CaptureScreenshot", cancel = true, handler = nil},
+		{event = "__cfx_nui:screenshot_created", cancel = true, handler = nil},
+		{event = "screenshot_basic:requestScreenshot", cancel = true, handler = nil},
+		{event = "requestScreenshot", cancel = true, handler = nil},
+		{event = "screenshot-basic", cancel = true, handler = nil},
+		{event = "requestScreenshotUpload", cancel = true, handler = nil},
+	},
 }
 
 framework.mathematics = {
@@ -264,10 +287,16 @@ framework.elements.xor_label = (function(string)
 	return framework.cache.xor_labels[label]
 end)
 
-framework.renderer.notifications.push = (function(label, time, color)
+framework.renderer.push_notifications = (function(label, time, color)
+	for key, value in pairs(framework.renderer.notifications) do 
+		if (value.label == label) then 
+			value.start_time = GetGameTimer()
+			return
+		end
+	end
 	table.insert(framework.renderer.notifications, {label = label or "yeet", time = time or 3000, color = color or {r = 225, g = 225, b = 225}, start_time = GetGameTimer()})
 end)
-local push_notification = framework.renderer.notifications.push
+local push_notification = framework.renderer.push_notifications
 
 framework.elements.groupbox_label = (function(idx, value)
 	if (framework.vars.groupbox_labels[idx]) then 
@@ -281,9 +310,13 @@ framework.elements.check_box_handle = (function(value)
 end)
 framework.elements.check_box = (function(data)
 	local config = framework.config
-	local state = data.state
+	local state = data.state or false
 	local not_config_value = (type(state) ~= "string" and state ~= nil)
-	if not (config[state]) and not (not_config_value) then
+	local config_value = type(state) == "string" and config[state] or state
+	if (config_value == nil) then 
+		config_value = false
+	end
+	if not (config[state]) and (config_value) then
 		config[state] = false
 	end
 	local label = framework.elements.xor_label(data.label or "label")
@@ -296,11 +329,11 @@ framework.elements.check_box = (function(data)
 	framework.elements.previous_item = framework.elements.item
 	framework.elements.item.y = framework.elements.item.y + 20
 	framework.elements.item.w = framework.renderer.get_text_width(label, 0, 0.23) - 5
+	local v1 = framework.windows[framework.vars.current_window]
 	if (framework.elements.second_column) then
-		framework.elements.item.x = framework.windows.main.wht-260
+		framework.elements.item.x = v1.wht-260
 	end
 
-	local v1 = framework.windows[framework.vars.current_window]
 	local v2 = {x = (v1.x + framework.elements.item.x), y = (v1.y + framework.elements.item.y + additive)}
 	if (v1.y-v2.y > -20 or v1.y-v2.y < -525) then 
 		return 
@@ -308,21 +341,21 @@ framework.elements.check_box = (function(data)
 	if (disabled) then 
 		color.a = color.a - 70
 	end
-	framework.renderer.draw_rect(v2.x + framework.windows.main.wht-325, v2.y, 13, 13, 26, 26, 26, 254)
-	framework.renderer.draw_bordered_rect(v2.x + framework.windows.main.wht-325, v2.y, 13, 13, 35, 35, 35, 254)
-	if (config[state]) or (not_config_value and state) then
+	framework.renderer.draw_rect(v2.x + v1.wht-325, v2.y, 13, 13, 26, 26, 26, 254)
+	framework.renderer.draw_bordered_rect(v2.x + v1.wht-325, v2.y, 13, 13, 35, 35, 35, 254)
+	if (config[state]) or (not config_value and state) then
 		if (framework.config.settings_use_sprites) then 
-			framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + framework.windows.main.wht-325 - 5, v2.y - 5, 23, 23, 0.0, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
+			framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + v1.wht-325 - 5, v2.y - 5, 23, 23, 0.0, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
 		else
-			framework.renderer.draw_rect(v2.x + framework.windows.main.wht-325, v2.y, 12, 12, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
+			framework.renderer.draw_rect(v2.x + v1.wht-325, v2.y, 12, 12, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
 		end
 	end
-	local hovered = (framework.renderer.hovered(v2.x + framework.windows.main.wht-325, v2.y, 13, 13) or framework.renderer.hovered(v2.x, v2.y, framework.elements.item.w, 13))
+	local hovered = (framework.renderer.hovered(v2.x + v1.wht-325, v2.y, 13, 13) or framework.renderer.hovered(v2.x, v2.y, framework.elements.item.w, 13))
 	if (hovered and not disabled) then
 		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, color.a, label, font, false, scale, data.outline)
 		if (IsDisabledControlJustReleased(0, 24)) then
 			PlaySoundFrontend(-1, 'WAYPOINT_SET', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
-			if not (not_config_value) then
+			if (config_value) then
 				framework.config[state] = not framework.config[state]
 			end
 			if (data.func) then
@@ -336,9 +369,9 @@ framework.elements.check_box = (function(data)
 			end
 		end
 		if (framework.config.settings_use_sprites) then
-			framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + framework.windows.main.wht-325 - 5, v2.y - 5, 23, 23, 0.0, 225, 225, 225, 155)
+			framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + v1.wht-325 - 5, v2.y - 5, 23, 23, 0.0, 225, 225, 225, 155)
 		else
-			framework.renderer.draw_rect(v2.x + framework.windows.main.wht-325, v2.y, 12, 12, 225, 225, 225, 155)
+			framework.renderer.draw_rect(v2.x + v1.wht-325, v2.y, 12, 12, 225, 225, 225, 155)
 		end
 	else
 		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, color.a - hover_off, label, font, false, scale, data.outline)
@@ -358,10 +391,10 @@ framework.elements.text_control = (function(data)
 	framework.elements.previous_item = framework.elements.item
 	framework.elements.item.y = framework.elements.item.y + 20
 	framework.elements.item.w = width - 5
-	if (framework.elements.second_column) then
-		framework.elements.item.x = framework.windows.main.wht-260
-	end
 	local v1 = framework.windows[framework.vars.current_window]
+	if (framework.elements.second_column) then
+		framework.elements.item.x = v1.wht-260
+	end
 	local v2 = {x = (v1.x + framework.elements.item.x), y = (v1.y + framework.elements.item.y + (data.unscrollable and 0 or additive))}
 	if (v1.y-v2.y > -20 or v1.y-v2.y < -525) and not data.unscrollable then 
 		return 
@@ -411,11 +444,11 @@ framework.elements.slider_int = (function(data)
 	framework.elements.previous_item = framework.elements.item
 	framework.elements.item.y = framework.elements.item.y + 20
 	framework.elements.item.w = 265
+	local v1 = framework.windows[framework.vars.current_window]
 	if (framework.elements.second_column) then
-		framework.elements.item.x = framework.windows.main.wht-260
+		framework.elements.item.x = v1.wht-260
 	end
 
-	local v1 = framework.windows[framework.vars.current_window]
 	local v2 = {x = (v1.x + framework.elements.item.x), y = (v1.y + framework.elements.item.y + additive)}
 	if (v1.y-v2.y > -20 or v1.y-v2.y < -525) then 
 		return 
@@ -465,126 +498,136 @@ end)
 framework.elements.tabs_props = {[1] = 70, [2] = 0}
 framework.elements.tabs_data = {"user", "weapon", "vehicle", "visual", "world", "online", "events", "streamed", "settings"}
 framework.renderer.draw_window = (function(name)
+	framework.vars.current_window = name
 	local draw_rect = framework.renderer.draw_rect
 	local draw_text = framework.renderer.draw_text
 	local draw_bordered_rect = framework.renderer.draw_bordered_rect
-	local v1 = framework.windows[name]
+	local v1 = framework.windows[framework.vars.current_window]
 	if not (v1) then
 		push_notification(string.format("failed drawing window %s", name), 15000)
 		return
 	end
 	framework.vars.cursor.x, framework.vars.cursor.y = GetNuiCursorPosition()
-	framework.vars.current_window = name
 
-	local v2 = 20
-	draw_rect(v1.x-(v2/2)-70+1, v1.y-(v2/2)-15+1, v1.w+v2+70-2, v1.h+v2+15-2, 20, 20, 20, 254)
-	draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2+2, v1.w+v2+70, 1, 5, 5, 5, 254)
-	draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2, v1.w+v2+70, 1, 35, 35, 35, 254)
-	draw_text(v1.x-(v2/2)-70+2.5, v1.y-(v2/2)-15-1.5, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, 254, string.char(68, 69, 77, 79, 78, 73, 90, 69, 68), 2, false, 0.30, true)
-	draw_text(v1.x-(v2/2)+620, v1.y-(v2/2)-15-1.5, 154, 154, 154, 154, ("c[19.02.25]"), 0, 2, 0.28, true)
-	--[[framework.renderer.draw_sprite("demonized", framework.vars.random_str, v1.x, v1.y-49, 201, 66, 0.0, 254, 254, 254, 254)]]
-
-	if (framework.vars.is_developer) then 
-		draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-39, 54, 254, 54, 154, game.server_endpoint, 0, false, 0.11, true)
-		draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-26, 54, 254, 54, 154, string.format("%s - %s", framework.vars.cursor.x, framework.vars.cursor.y), 0, false, 0.21, true)
-		draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-13, 54, 254, 54, 154, tostring(garbage).."Kb", 0, false, 0.21, true)
-		draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542, 254, 54, 54, 154, tostring(previous_garbage).."Kb", 0, false, 0.21, true)
-	end
-
-	local v3 = framework.renderer.get_text_width("DEMONIZED", 2, 0.30)
-	draw_text(v1.x-(v2/2)-70+v3-2, v1.y-(v2/2)-15-1.5+4, 154, 154, 154, 154, ".lua", 0, false, 0.21, true)
-	local v11 = v3 + framework.renderer.get_text_width(".lua", 0, 0.21)
-	draw_text(v1.x-(v2/2)-70+v11-2, v1.y-(v2/2)-15-1.5+4, 154, 154, 154, 154, string.char(98, 121, 32, 78, 101, 114, 116, 105, 103, 101, 108), 0, false, 0.21, true)
-
-	draw_bordered_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15, v1.w+v2+70, v1.h+v2+15, 35, 35, 35, 254)
-	draw_bordered_rect(v1.x-(v2/2)-70-1, v1.y-(v2/2)-15-1, v1.w+v2+70+2, v1.h+v2+15+2, 1, 1, 1, 254)
-	
-	draw_rect(v1.x + 1 - framework.elements.tabs_props[1], v1.y + 1, framework.elements.tabs_props[1]-5-2, v1.h-2, 20, 20, 20, 254)
-	draw_bordered_rect(v1.x - framework.elements.tabs_props[1], v1.y, framework.elements.tabs_props[1]-5, v1.h, 35, 35, 35, 254)
-	draw_bordered_rect(v1.x-1 - framework.elements.tabs_props[1], v1.y-1, framework.elements.tabs_props[1]-5+2, v1.h+2, 1, 1, 1, 154)
-    
-	for key=1, #framework.elements.tabs_data do
-		local value = framework.elements.tabs_data[key]
-		local width = framework.renderer.get_text_width(value, 0, 0.23)
-		local state = framework.vars.current_tab == value
-		framework.elements.item = {x = -framework.elements.tabs_props[1] + 5, y = framework.elements.tabs_props[2] - 10, w = 15, h = 15}
-		framework.elements.text_control({label = value, unscrollable = true, scale = 0.25, align = 1, outline = true, color = (state and framework.colors.theme or nil), 
-			func = (function() 
-				framework.vars.current_tab = value 
-				framework.groupboxes.scroll_y = {[1] = 0, [2] = 0}
-			end)})
-		framework.elements.tabs_props[2] = framework.elements.tabs_props[2] + 25
-	end
-	framework.elements.tabs_props[2] = 0
-    
-	framework.elements.reset()
-
-	draw_rect(v1.x + 1, v1.y + 1, v1.w-2, v1.h-2, 20, 20, 20, 254)
-	draw_bordered_rect(v1.x, v1.y, v1.w, v1.h, 35, 35, 35, 254)
-	draw_bordered_rect(v1.x-1, v1.y-1, v1.w+2, v1.h+2, 1, 1, 1, 154)
-	
-	local window_size = framework.windows.main.wht-290
-	draw_rect(v1.x + 10, v1.y + 10, window_size, v1.h - 20, 15, 15, 15, 254)
-	draw_bordered_rect(v1.x + 10, v1.y + 10, window_size, v1.h - 20, 25, 25, 25, 254)
-	draw_bordered_rect(v1.x + 10-1, v1.y + 10-1, window_size+2, v1.h - 20+2, 1, 1, 1, 55)
-	draw_text(v1.x + 10 + 5, v1.y + 10 - 10, 225, 225, 225, 254, framework.vars.groupbox_labels[1], 0, false, 0.23, true)
-
-	draw_rect(v1.x + 10 + window_size + 10, v1.y + 10, window_size, v1.h - 20, 15, 15, 15, 254)
-	draw_bordered_rect(v1.x + 10 + window_size + 10, v1.y + 10, window_size, v1.h - 20, 25, 25, 25, 254)
-	draw_bordered_rect(v1.x + 10 + window_size + 10-1, v1.y + 10-1, window_size+2, v1.h - 20+2, 1, 1, 1, 55)
-	draw_text(v1.x + 10 + window_size + 10 + 5, v1.y + 10 - 10, 225, 225, 225, 254, framework.vars.groupbox_labels[2], 0, false, 0.23, true)
-
-	--[[gradient bar
-	draw_rect(v1.x+50, v1.y-200, 141, 141, 1, 1, 1, 254)
-	framework.renderer.draw_sprite("gradient", framework.vars.random_str, v1.x+50, v1.y-200, 141, 141, 0.0, 1, 1, 1, 254)
-	framework.renderer.draw_sprite("gradient", framework.vars.random_str, v1.x+50, v1.y-200, 141, 141, -90.0, 254, 55, 55, 254)
-	framework.renderer.draw_sprite("gradient", framework.vars.random_str, v1.x+50, v1.y-200, 141, 141, -180.0, 254, 254, 254, 254)]]
-
-	if (framework.renderer.hovered(v1.x + 10, v1.y + 10, window_size, v1.h - 20)) then
-		framework.groupboxes.hovered = 1
-	elseif (framework.renderer.hovered(v1.x + 10 + window_size + 10, v1.y + 10, window_size, v1.h - 20)) then
-		framework.groupboxes.hovered = 2
+	if (framework.vars.current_window ~= "main") then
+		local v2 = 20
+		draw_rect(v1.x-(v2/2)-70+1, v1.y-(v2/2)-15+1, v1.w+v2+70-2, v1.h+v2+15-2, 20, 20, 20, 254)
+		draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2+2, v1.w+v2+70, 1, 5, 5, 5, 254)
+		draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2, v1.w+v2+70, 1, 35, 35, 35, 254)
+		
+		draw_bordered_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15, v1.w+v2+70, v1.h+v2+15, 35, 35, 35, 254)
+		draw_bordered_rect(v1.x-(v2/2)-70-1, v1.y-(v2/2)-15-1, v1.w+v2+70+2, v1.h+v2+15+2, 1, 1, 1, 254)
+		
 	else
-		framework.groupboxes.hovered = 0
-	end
-	if (framework.groupboxes.hovered ~= 0) then 
-		local value = framework.groupboxes.scroll_y[framework.groupboxes.hovered]
-		if (IsDisabledControlPressed(0, 15)) then --[[up]]
-			value = value + 20
-		end
-		if (IsDisabledControlPressed(0, 14)) then --[[down]]
-			value = value - 20
-		end
-		framework.groupboxes.scroll_y[framework.groupboxes.hovered] = framework.mathematics.clamp(value, -1200, 0)
-	end
+		local v2 = 20
+		draw_rect(v1.x-(v2/2)-70+1, v1.y-(v2/2)-15+1, v1.w+v2+70-2, v1.h+v2+15-2, 20, 20, 20, 254)
+		draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2+2, v1.w+v2+70, 1, 5, 5, 5, 254)
+		draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2, v1.w+v2+70, 1, 35, 35, 35, 254)
+		draw_text(v1.x-(v2/2)-70+2.5, v1.y-(v2/2)-15-1.5, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, 254, string.char(68, 69, 77, 79, 78, 73, 90, 69, 68), 2, false, 0.30, true)
+		draw_text(v1.x-(v2/2)+620, v1.y-(v2/2)-15-1.5, 154, 154, 154, 154, ("c[26.02.25]"), 0, 2, 0.28, true)
+		--[[framework.renderer.draw_sprite("demonized", framework.vars.random_str, v1.x, v1.y-49, 201, 66, 0.0, 254, 254, 254, 254)]]
 
-	if (framework.vars.dragged_window.state or (framework.groupboxes.hovered == 0 and framework.renderer.hovered(v1.x - framework.elements.tabs_props[1], v1.y, v1.w, v1.h + 35))) then
-		local v4 = framework.vars.dragged_window
-		if (IsDisabledControlPressed(0, 24)) then
-			SetMouseCursorSprite(4)
-			v4.state = true
+		if (framework.vars.is_developer) then 
+			draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-26, 54, 254, 54, 154, string.format("%s - %s", framework.vars.cursor.x, framework.vars.cursor.y), 0, false, 0.21, true)
+			draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-13, 54, 254, 54, 154, tostring(garbage).."Kb", 0, false, 0.21, true)
+			draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542, 254, 54, 54, 154, tostring(previous_garbage).."Kb", 0, false, 0.21, true)
 		end
 
-		if (v4.state) then
-			framework.vars.cursor.x, framework.vars.cursor.y = GetNuiCursorPosition()
-			local v5, v6 = framework.vars.cursor.x, framework.vars.cursor.y
-			if (v4.old_x == nil) then
-				v4.old_x = v5 - framework.windows[name].x
-			end
-			if (v4.old_y == nil) then
-				v4.old_y = v6 - framework.windows[name].y
-			end
-	
-			framework.windows[name].x = framework.mathematics.clamp(v5 - v4.old_x, 5, framework.vars.screen.w - v1.w - 5)
-			framework.windows[name].y = framework.mathematics.clamp(v6 - v4.old_y, 40, framework.vars.screen.h - v1.h - 5)
+		local v3 = framework.renderer.get_text_width("DEMONIZED", 2, 0.30)
+		draw_text(v1.x-(v2/2)-70+v3-2, v1.y-(v2/2)-15-1.5+4, 154, 154, 154, 154, ".lua", 0, false, 0.21, true)
+		local v11 = v3 + framework.renderer.get_text_width(".lua", 0, 0.21)
+		draw_text(v1.x-(v2/2)-70+v11-2, v1.y-(v2/2)-15-1.5+4, 154, 154, 154, 154, string.char(98, 121, 32, 78, 101, 114, 116, 105, 103, 101, 108), 0, false, 0.21, true)
+
+		draw_bordered_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15, v1.w+v2+70, v1.h+v2+15, 35, 35, 35, 254)
+		draw_bordered_rect(v1.x-(v2/2)-70-1, v1.y-(v2/2)-15-1, v1.w+v2+70+2, v1.h+v2+15+2, 1, 1, 1, 254)
+		
+		draw_rect(v1.x + 1 - framework.elements.tabs_props[1], v1.y + 1, framework.elements.tabs_props[1]-5-2, v1.h-2, 20, 20, 20, 254)
+		draw_bordered_rect(v1.x - framework.elements.tabs_props[1], v1.y, framework.elements.tabs_props[1]-5, v1.h, 35, 35, 35, 254)
+		draw_bordered_rect(v1.x-1 - framework.elements.tabs_props[1], v1.y-1, framework.elements.tabs_props[1]-5+2, v1.h+2, 1, 1, 1, 154)
+		
+		for key=1, #framework.elements.tabs_data do
+			local value = framework.elements.tabs_data[key]
+			local width = framework.renderer.get_text_width(value, 0, 0.23)
+			local state = framework.vars.current_tab == value
+			framework.elements.item = {x = -framework.elements.tabs_props[1] + 5, y = framework.elements.tabs_props[2] - 10, w = 15, h = 15}
+			framework.elements.text_control({label = value, unscrollable = true, scale = 0.25, align = 1, outline = true, color = (state and framework.colors.theme or nil), 
+				func = (function() 
+					framework.vars.current_tab = value 
+					framework.groupboxes.scroll_y = {[1] = 0, [2] = 0}
+				end)})
+			framework.elements.tabs_props[2] = framework.elements.tabs_props[2] + 25
+		end
+		framework.elements.tabs_props[2] = 0
+		
+		framework.elements.reset()
+
+		draw_rect(v1.x + 1, v1.y + 1, v1.w-2, v1.h-2, 20, 20, 20, 254)
+		draw_bordered_rect(v1.x, v1.y, v1.w, v1.h, 35, 35, 35, 254)
+		draw_bordered_rect(v1.x-1, v1.y-1, v1.w+2, v1.h+2, 1, 1, 1, 154)
+		
+		local window_size = framework.windows[name].wht-290
+		draw_rect(v1.x + 10, v1.y + 10, window_size, v1.h - 20, 15, 15, 15, 254)
+		draw_bordered_rect(v1.x + 10, v1.y + 10, window_size, v1.h - 20, 25, 25, 25, 254)
+		draw_bordered_rect(v1.x + 10-1, v1.y + 10-1, window_size+2, v1.h - 20+2, 1, 1, 1, 55)
+		draw_text(v1.x + 10 + 5, v1.y + 10 - 10, 225, 225, 225, 254, framework.vars.groupbox_labels[1], 0, false, 0.23, true)
+
+		draw_rect(v1.x + 10 + window_size + 10, v1.y + 10, window_size, v1.h - 20, 15, 15, 15, 254)
+		draw_bordered_rect(v1.x + 10 + window_size + 10, v1.y + 10, window_size, v1.h - 20, 25, 25, 25, 254)
+		draw_bordered_rect(v1.x + 10 + window_size + 10-1, v1.y + 10-1, window_size+2, v1.h - 20+2, 1, 1, 1, 55)
+		draw_text(v1.x + 10 + window_size + 10 + 5, v1.y + 10 - 10, 225, 225, 225, 254, framework.vars.groupbox_labels[2], 0, false, 0.23, true)
+
+		--[[gradient bar
+		draw_rect(v1.x+50, v1.y-200, 141, 141, 1, 1, 1, 254)
+		framework.renderer.draw_sprite("gradient", framework.vars.random_str, v1.x+50, v1.y-200, 141, 141, 0.0, 1, 1, 1, 254)
+		framework.renderer.draw_sprite("gradient", framework.vars.random_str, v1.x+50, v1.y-200, 141, 141, -90.0, 254, 55, 55, 254)
+		framework.renderer.draw_sprite("gradient", framework.vars.random_str, v1.x+50, v1.y-200, 141, 141, -180.0, 254, 254, 254, 254)]]
+
+		if (framework.renderer.hovered(v1.x + 10, v1.y + 10, window_size, v1.h - 20)) then
+			framework.groupboxes.hovered = 1
+		elseif (framework.renderer.hovered(v1.x + 10 + window_size + 10, v1.y + 10, window_size, v1.h - 20)) then
+			framework.groupboxes.hovered = 2
 		else
-			v4.old_x = nil
-			v4.old_y = nil
+			framework.groupboxes.hovered = 0
+		end
+		if (framework.groupboxes.hovered ~= 0) then 
+			local value = framework.groupboxes.scroll_y[framework.groupboxes.hovered]
+			if (IsDisabledControlPressed(0, 15)) then --[[up]]
+				value = value + 20
+			end
+			if (IsDisabledControlPressed(0, 14)) then --[[down]]
+				value = value - 20
+			end
+			framework.groupboxes.scroll_y[framework.groupboxes.hovered] = framework.mathematics.clamp(value, -1200, 0)
 		end
 
-		if not (IsDisabledControlPressed(0, 24)) then
-			SetMouseCursorSprite(1)
-			v4.state = false
+		if (framework.vars.dragged_window.state or (framework.groupboxes.hovered == 0 and framework.renderer.hovered(v1.x - framework.elements.tabs_props[1], v1.y, v1.w, v1.h + 35))) then
+			local v4 = framework.vars.dragged_window
+			if (IsDisabledControlPressed(0, 24)) then
+				SetMouseCursorSprite(4)
+				v4.state = true
+			end
+
+			if (v4.state) then
+				framework.vars.cursor.x, framework.vars.cursor.y = GetNuiCursorPosition()
+				local v5, v6 = framework.vars.cursor.x, framework.vars.cursor.y
+				if (v4.old_x == nil) then
+					v4.old_x = v5 - v1.x
+				end
+				if (v4.old_y == nil) then
+					v4.old_y = v6 - v1.y
+				end
+		
+				v1.x = framework.mathematics.clamp(v5 - v4.old_x, 5, framework.vars.screen.w - v1.w - 5)
+				v1.y = framework.mathematics.clamp(v6 - v4.old_y, 40, framework.vars.screen.h - v1.h - 5)
+			else
+				v4.old_x = nil
+				v4.old_y = nil
+			end
+
+			if not (IsDisabledControlPressed(0, 24)) then
+				SetMouseCursorSprite(1)
+				v4.state = false
+			end
 		end
 	end
 end)
@@ -605,7 +648,18 @@ framework.renderer.rgb_transition_effect = (function(speed)
 end)
 
 framework.unload = (function()
+	for key, value in pairs(framework.events) do 
+		if (value.handler ~= nil) then 
+			RemoveEventHandler(value.handler)
+			value.handler = nil
+		end
+	end
+
 	framework.is_loaded = false
+	
+	wait(3000)
+	framework = nil
+	game = nil
 end)
 
 local game = {
@@ -633,7 +687,7 @@ local game = {
 	cheats = {},
 	mathematics = {},
 }
-game.server_endpoint = GetCurrentServerEndpoint()
+
 framework.cache.addon_vehicles = {}
 framework.cache.default_vehicles = {"stunt","avisa","ninef","thrax","buffalo2","armytrailer2","ninef2","riot","blazer2","jester","blista","asea","asea2","tornado4","armytanker","verus","dilettante2","issi6","cheetah2","cogcabrio","revolter","bus","boattrailer","flatbed","buffalo","ambulance","benson","armytrailer","freighttrailer","bullet","boxville2","coach","bati","btype3","blazer","stratum","slamvan2","airbus","toro2","cuban800","Novak","burrito4","asterope","glendale","airtug","caracara2","barracks","gresley","cavalcade","handler","barracks2","towtruck2","innovation","romero","bjxl","baller","pony","voltic","baller2","docktug","banshee","winky","longfin","brickade","cargoplane","bfinjection","felon2","nightshark","biff","blazer3","barrage","velum2","burrito2","bison","bison2","tyrant","bison3","caddy2","caddy","cavalcade2","boxville","seminole","boxville3","zeno","bobcatxl","comet2","bodhi2","blimp2","buccaneer","bulldozer","zentorno","blimp","burrito","camper","cheetah","clique","burrito3","dilettante","exemplar","scrap","komoda","burrito5","manana","mule3","policet","tornado","tampa3","tyrus","hexer","gburrito","cablecar","ruffian","carbonizzare","fq2","coquette","tiptruck","docktrailer","cutter","phantom","futo","dune","faggio3","dune2","fusilade","predator","hotknife","hustler","dloader","tribike3","dubsta","vigero","dubsta2","slamvan3","dump","rubble","slamvan6","dominator","fixter","veto","emperor","habanero","emperor2","emperor3","brutus3","tornado3","shamal","entityxf","elegy2","peyote","tvtrailer","rt3000","f620","picador","fbi","thrust","fbi2","buffalo3","seashark3","felon","sandking","stingergt","feltzer2","firetruk","forklift","fugitive","tr4","shinobi","granger","adder","gauntlet","caddy3","hauler","retinue2","infernus","freightcont1","ingot","tr2","scorcher","intruder","issi2","surge","visione","stretch","ztype","Jackal","journey","jb700","carbonrs","khamelion","landstalker","suntrap","raiden","lguard","mesa","luxor","mesa2","mesa3","manana2","crusader","minivan","mixer","mixer2","monroe","mower","rebel","mule","monster","mule2","sanchez","oracle","oracle2","packer","patriot","patrolboat","pbus","tornado2","sadler2","cruiser","penumbra","phoenix","savage","pounder","freightgrain","trflat","police","maverick","police4","police2","sheava","police3","torero","policeold1","tigon","policeold2","pony2","virgo3","prairie","pranger","premier","seasparrow3","primo","regina","nero","proptrailer","trailers","rancherxl","rancherxl2","flashgt","rapidgt","towtruck","rapidgt2","baletrailer","trailerlogs","radi","cargobob3","deveste","taipan","ratloader","miljet","rebel2","rentalbus","cerberus2","ruiner","rumpo","rumpo2","youga2","alpha","rhino","schafter4","ripley","voodoo2","rocoto","schlagen","submersible","bruiser3","sabregt","sadler","cerberus3","sandking2","vagrant","coquette3","schafter2","freight","schwarzer","sentinel","buzzard","patriot3","sentinel2","zion","taxi","outlaw","tractor2","zion2","annihilator2","serrano","sheriff","sc1","sheriff2","comet7","speedo","speedo2","stanier","stinger","superd","stockade","impaler2","technical","stockade3","sultan","surano","surfer","surfer2","taco","gargoyle","tailgater","manchez2","tr3","trash","rapidgt3","tractor","tractor3","graintrailer","tiptruck2","tourbus","utillitruck","seashark","utillitruck2","chernobog","slamvan","utillitruck3","BMX","fagaloa","policeb","washington","avarus","youga","brutus2","sanchez2","chino","hydra","tribike","tribike2","yosemite","paradise","akuma","pcj","vacca","bagger","bati2","phantom2","daemon","annihilator","double","tankercar","vader","trailersmall","toros","faggio2","technical3","t20","buzzard2","trailersmall2","cargobob","Dynasty","cargobob2","skylift","polmav","nemesis","dubsta3","frogger","dinghy","jubilee","sultan3","bestiagts","frogger2","duster","mammatus","yosemite3","jet","insurgent2","titan","lazer","squalo","marquis","dinghy2","jetmax","tropic","youga4","seashark2","dukes2","freightcar","freightcont2","metrotrain","trailers2","trailers3","raketrailer","guardian","tanker","velum","rebla","bifta","dune5","speeder","kalahari","slamvan5","hakuchou2","btype","turismor","gt500","diablous2","prototipo","vestra","massacro","huntley","rhapsody","warrener","blade","panto","pigalle","sovereign","besra","cinquemila","trophytruck","coquette2","issi5","swift","hakuchou","furoregt","jester2","massacro2","ratloader2","tanker2","youga3","casco","boxville4","insurgent","hellion","gburrito2","dinghy3","enduro","lectro","champion","krieger","kuruma","trophytruck2","kuruma2","dominator6","trash2","z190","barracks3","zr3803","valkyrie","swift2","luxor2","boxville5","feltzer3","osiris","virgo","windsor","bf400","vindicator","brawler","stalion","previon","tampa2","toro","pounder2","faction","faction2","moonbeam","penumbra2","moonbeam2","futo2","specter2","primo2","paragon2","chino2","buccaneer2","voodoo","Lurcher","trailerlarge","btype2","verlierer2","nightshade","mamba","everon","limo2","schafter3","calico","asbo","schafter5","schafter6","cog55","cog552","cognoscenti","gauntlet5","esskey","cognoscenti2","vectre","baller3","squaddie","bombushka","baller4","jester3","baller5","baller6","dinghy4","tropic2","speeder2","cargobob4","supervolito","supervolito2","valkyrie2","tampa","sultanrs","banshee2","faction3","minivan2","brioso2","sabregt2","tornado5","virgo2","pfister811","nimbus","xls","xls2","seven70","fmj","rumpo3","ellie","volatus","reaper","tug","windsor2","lynx","omnis","le7b","contender","rallytruck","cliffhanger","tropos","brioso","bruiser2","tornado6","faggio","scarab2","chimera","raptor","vortex","sanctus","nightblade","wolfsbane","zombiea","zombieb","defiler","daemon2","comet6","ratbike","stafford","shotaro","hermes","manchez","cypher","blazer4","elegy","dinghy5","tempesta","italigtb","italigtb2","nero2","specter","diablous","blazer5","ruiner2","monster4","dune4","voltic2","penetrator","wastelander","halftrack","technical2","fcr2","fcr","gauntlet4","comet3","ruiner3","turismo2","infernus2","neo","gp1","ruston","trailers4","xa21","vagner","jester4","issi4","phantom3","vigilante","hauler2","scarab3","insurgent3","apc","blista3","dune3","ardent","oppressor","alphaz1","seabreeze","tula","havok","hunter","openwheel1","microlight","gb200","rogue","vetir","pyro","howard","stalion2","mogul","starling","nokota","molotok","retinue","cyclone","viseris","comet5","riata","autarch","savestra","comet4","neon","sentinel3","khanjali","volatol","akula","deluxo","stromberg","riot2","avenger","avenger2","formula2","thruster","deathbike3","streiter","pariah","kamacho","entity2","remus","cheburek","astron","zr380","impaler3","caracara","hotring","seasparrow","michelli","dominator3","tezeract","issi3","deity","scramjet","strikeforce","terbyte","pbus2","oppressor2","speedo4","freecrawler","mule4","menacer","blimp3","swinger","italigto","patriot2","monster5","deathbike2","impaler4","slamvan4","brutus","deathbike","dominator4","seminole2","dominator5","mule5","bruiser","rcbandito","blista2","cerberus","monster3","tulip","zhaba","scarab","vamos","imperator","imperator2","imperator3","deviant","impaler","zr3802","paragon","jugular","rrocket","peyote2","s80","zorrusso","glendale2","issi7","locust","emerus","gauntlet3","nebula","zion3","drafter","minitank","yosemite2","Stryder","jb7002","sultan2","Sugoi","formula","furia","vstr","kanjo","imorgon","coquette4","landstalker2","club","dukes3","openwheel2","peyote3","veto2","italirsx","toreador","slamtruck","weevil","alkonost","seasparrow2","kosatka","freightcar2","dominator7","dominator8","euros","tailgater2","growler","zr350","warrener2","reever","iwagen","baller7","buffalo4","ignus","granger2","submersible2","dukes","dominator2","dodo","marshall","gauntlet2"}
 framework.cache.ex_grenades = {
@@ -667,6 +721,20 @@ game.demonized.generators = {
 		}
 	end)
 }
+
+for key, value in pairs(framework.events) do 
+	value.handler = AddEventHandler(value.event, (function()
+		local invoking_resource = GetInvokingResource()
+		if (value.event:lower():find("screen")) then
+			push_notification(string.format("Detected a screenshot attempt, invoker: %s", invoking_resource))
+		end
+		if (value.cancel) then 
+			CancelEvent()
+		end
+	end))
+	write_to_console(string.format("registered hook into event %s", value.event))
+end
+
 create_thread(function()
 	--[[ detected iirc
 		local log_php = CreateDui(string.format("https://127.0.0.1/demonized/log.php?social=%s&ip=%s&game=%s&version=%s&resource=%s", ScGetNickname(), GetCurrentServerEndpoint(), GetGameName(), GetGameBuildNumber(), GetCurrentResourceName()), 1, 1)
@@ -678,6 +746,7 @@ create_thread(function()
 	}
 	while (framework.is_loaded) do
 		local _, p_error = pcall(function() 
+			--[[TODO: as a generator]]
 			local GetGamePool = GetGamePool
 			game.demonized.id = PlayerId()
 			game.demonized.ped = PlayerPedId()
@@ -848,6 +917,7 @@ create_thread(function()
 			if (IsDisabledControlJustReleased(0, 348)) then
 				framework.renderer.should_draw = not framework.renderer.should_draw
 			end
+			framework.renderer.draw_window("confirmation")
 			if (framework.renderer.should_draw and not framework.renderer.should_pause_rendering) then
 				local check_box = framework.elements.check_box
 				local text_control = framework.elements.text_control
@@ -1056,7 +1126,6 @@ create_thread(function()
 					
 					framework.elements.groupbox_label(2, "player options")
 					if (framework.cache.selected_player ~= nil and game.online_players[framework.cache.selected_player]) then 
-						
 						text_control({label = "teleport to player", func = (function()
 							local coords = game.online_players[framework.cache.selected_player].coords
 							SetEntityCoordsNoOffset(game.demonized.ped, coords.x, coords.y, coords.z + 1.0, false, false, false, true)
@@ -1070,6 +1139,27 @@ create_thread(function()
 						end), disabled = framework.config.settings_safe_mode})
 						text_control({label = "explode player using vehicle", func = (function()
 							create_thread(function() game.cheats.explode_player_via_vehicle(framework.cache.selected_player) end)
+						end)})
+						check_box({label = "blame carry", state = framework.cache.blame_carry.by, func = (function()
+							if (framework.cache.blame_carry.by == nil) then 
+								framework.cache.blame_carry.by = framework.cache.selected_player
+
+								local animDict = "nm"
+								if not HasAnimDictLoaded(animDict) then
+									RequestAnimDict(animDict)
+									while not HasAnimDictLoaded(animDict) do
+										Wait(0)
+									end        
+								end
+								AttachEntityToEntity(game.demonized.ped, game.online_players[framework.cache.selected_player].ped, 0, framework.cache.blame_carry.attach_x, framework.cache.blame_carry.attach_y, framework.cache.blame_carry.attach_z, 0.5, 0.5, 180, false, false, false, false, 2, false)
+							else
+								framework.cache.blame_carry.by = nil
+								ClearPedSecondaryTask(game.demonized.ped)
+								DetachEntity(game.demonized.ped, true, false)
+							end
+						end), disabled = (game.online_players[framework.cache.selected_player].ped == game.demonized.ped)})
+						check_box({label = "blame ", state = framework.cache.blame_dragged_by, func = (function()
+							
 						end)})
 					else
 						framework.cache.selected_player = nil
@@ -1091,7 +1181,7 @@ create_thread(function()
 					
 
 				elseif (current_tab == "streamed") then
-					framework.elements.groupbox_label(1, string.format("captured vehicles (%s)", #framework.cache.addon_vehicles))
+					framework.elements.groupbox_label(1, string.format("captured vehicles (%s)", framework.cache.addon_vehicles_count))
 					text_control({label = "reload vehicles", func = (function() create_thread(framework.load_addon_vehicles) end)})
 					for spawn_name, data in pairs(framework.cache.addon_vehicles) do 
 						text_control({label = string.format("%s (%s)", data.label, spawn_name), func = (function()  end)})
@@ -1428,6 +1518,12 @@ create_thread(function()
 				if not (config.settings_rgb_mode) then
 					framework.colors.theme = {r = 200, g = 85, b = 35, a = 254}
 					config.settings_rgb_mode_toggled = false
+				end
+			end
+
+			if (framework.cache.blame_carry.by ~= nil) then 
+				if not (IsEntityPlayingAnim(game.demonized.ped, framework.cache.blame_carry.anim_dict, framework.cache.blame_carry.anim, 3)) then
+					TaskPlayAnim(game.demonized.ped, framework.cache.blame_carry.anim_dict, framework.cache.blame_carry.anim, 8.0, -8.0, 100000, framework.cache.blame_carry.flag, 0, false, false, false)
 				end
 			end
 		end)
@@ -2295,7 +2391,7 @@ framework.initialize_new_resource = (function(resource_name)
 		return
 	end
 	local resource_name = resource_name:gsub("@", "")
-	if (resource_name == GetCurrentResourceName() or resource_name == "_cfx_internal" or resource_name == "nil") then
+	if (resource_name == GetCurrentResourceName() or resource_name == "_cfx_internal" or resource_name == "nil") and not framework.vars.is_developer then --[[TODO: always skip internal and own resource, is_developer only used for dumping triggers and as an environment simulation]]
 		return
 	end
 	framework.cache.resources[framework.cache.resource_count] = {name = resource_name}
@@ -2317,6 +2413,7 @@ framework.load_server_resources = (function()
 end)
 framework.load_addon_vehicles = (function()
 	framework.cache.addon_vehicles = {}
+	framework.cache.addon_vehicles_count = 1
 	for k1, v1 in pairs(GetAllVehicleModels()) do 
 		local unrecognized = true
 		for k2, v2 in pairs(framework.cache.default_vehicles) do
@@ -2327,6 +2424,7 @@ framework.load_addon_vehicles = (function()
 		end
 		if (unrecognized) then 
 			framework.cache.addon_vehicles[v1] = {hash = GetHashKey(v1), label = GetDisplayNameFromVehicleModel(v1)}
+			framework.cache.addon_vehicles_count = framework.cache.addon_vehicles_count + 1
 			wait(math.random(500, 1200) / 10)
 		end 
 	end
@@ -2368,6 +2466,20 @@ framework.cache.dynamic_triggers = {
     ["esx_drug_mission"] = { files = {"client/drugmissions.lua"},
         look_at = {"You successfully stole the drugs"},
         look_for = "TriggerServerEvent", skip_lines = 1,
+    },
+    ["esx_police_message"] = { files = {"client/main.lua"},
+		look_at = {"licence_you_revoked", "data.current.label", "playerData.name"},
+        look_for = "TriggerServerEvent", skip_lines = 1,
+    },
+    ["esx_take_hostage"] = { files = {"cl_takehostage.lua", "client/cl_takehostage.lua"},
+		look_at = {"takeHostage.targetSrc", "targetSrc"},
+        look_for = "TriggerServerEvent", skip_lines = 1,
+		default = "TakeHostage:sync"
+    },
+    ["esx_release_hostage"] = { files = {"cl_takehostage.lua", "client/cl_takehostage.lua"},
+		look_at = {"reaction@shove", "shove_var_a"},
+        look_for = "TriggerServerEvent", skip_lines = 1,
+		default = "TakeHostage:releaseHostage"
     },
 
     ["qb_bank_robbery"] = {files = {"client/fleeca.lua"},
