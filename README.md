@@ -14,6 +14,7 @@ heavily modified version of [local_player.lua](https://github.com/nertigel/local
 - Fixed duplicate notifications
 - Fixed support for multiple windows (still WIP)
 - Added dynamic triggers for - esx_policejob:message, esx_take_hostage, esx_release_hostage
+
 At the moment dynamic triggers are not being used - can be implemented easily but not atm since I'm looking into bypasses for more event based AC
 
 [ c19.02.25 ]
