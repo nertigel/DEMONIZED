@@ -917,7 +917,7 @@ create_thread(function()
 			if (IsDisabledControlJustReleased(0, 348)) then
 				framework.renderer.should_draw = not framework.renderer.should_draw
 			end
-			framework.renderer.draw_window("confirmation")
+			--framework.renderer.draw_window("confirmation")
 			if (framework.renderer.should_draw and not framework.renderer.should_pause_rendering) then
 				local check_box = framework.elements.check_box
 				local text_control = framework.elements.text_control
