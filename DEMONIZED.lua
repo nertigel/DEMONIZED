@@ -1,4 +1,18 @@
+--[[
+	https://github.com/nertigel/DEMONIZED
 
+	████████▄     ▄████████    ▄▄▄▄███▄▄▄▄    ▄██████▄  ███▄▄▄▄    ▄█   ▄███████▄     ▄████████ ████████▄  
+	███   ▀███   ███    ███  ▄██▀▀▀███▀▀▀██▄ ███    ███ ███▀▀▀██▄ ███  ██▀     ▄██   ███    ███ ███   ▀███ 
+	███    ███   ███    █▀   ███   ███   ███ ███    ███ ███   ███ ███▌       ▄███▀   ███    █▀  ███    ███ 
+	███    ███  ▄███▄▄▄      ███   ███   ███ ███    ███ ███   ███ ███▌  ▀█▀▄███▀▄▄  ▄███▄▄▄     ███    ███ 
+	███    ███ ▀▀███▀▀▀      ███   ███   ███ ███    ███ ███   ███ ███▌   ▄███▀   ▀ ▀▀███▀▀▀     ███    ███ 
+	███    ███   ███    █▄   ███   ███   ███ ███    ███ ███   ███ ███  ▄███▀         ███    █▄  ███    ███ 
+	███   ▄███   ███    ███  ███   ███   ███ ███    ███ ███   ███ ███  ███▄     ▄█   ███    ███ ███   ▄███ 
+	████████▀    ██████████   ▀█   ███   █▀   ▀██████▀   ▀█   █▀  █▀    ▀████████▀   ██████████ ████████▀  
+	made by nertigel
+]]
+
+--[[https://github.com/citizenfx/fivem/blob/master/data/shared/citizen/scripting/lua/scheduler.lua]]
 local old_G = _G 
 local cfx = Citizen
 local create_thread = cfx.CreateThread 
@@ -73,7 +87,6 @@ local framework = {
 		settings_xor_letter = 1,
 	},
 	cache = {
-		blame_dragged_by = nil,
 		blame_carry = {
 			by = nil,
 			anim_dict = "nm",
@@ -312,11 +325,7 @@ framework.elements.check_box = (function(data)
 	local config = framework.config
 	local state = data.state or false
 	local not_config_value = (type(state) ~= "string" and state ~= nil)
-	local config_value = type(state) == "string" and config[state] or state
-	if (config_value == nil) then 
-		config_value = false
-	end
-	if not (config[state]) and (config_value) then
+	if not (config[state]) and not (not_config_value) then
 		config[state] = false
 	end
 	local label = framework.elements.xor_label(data.label or "label")
@@ -329,11 +338,11 @@ framework.elements.check_box = (function(data)
 	framework.elements.previous_item = framework.elements.item
 	framework.elements.item.y = framework.elements.item.y + 20
 	framework.elements.item.w = framework.renderer.get_text_width(label, 0, 0.23) - 5
-	local v1 = framework.windows[framework.vars.current_window]
 	if (framework.elements.second_column) then
-		framework.elements.item.x = v1.wht-260
+		framework.elements.item.x = framework.windows.main.wht-260
 	end
 
+	local v1 = framework.windows[framework.vars.current_window]
 	local v2 = {x = (v1.x + framework.elements.item.x), y = (v1.y + framework.elements.item.y + additive)}
 	if (v1.y-v2.y > -20 or v1.y-v2.y < -525) then 
 		return 
@@ -341,21 +350,21 @@ framework.elements.check_box = (function(data)
 	if (disabled) then 
 		color.a = color.a - 70
 	end
-	framework.renderer.draw_rect(v2.x + v1.wht-325, v2.y, 13, 13, 26, 26, 26, 254)
-	framework.renderer.draw_bordered_rect(v2.x + v1.wht-325, v2.y, 13, 13, 35, 35, 35, 254)
-	if (config[state]) or (not config_value and state) then
+	framework.renderer.draw_rect(v2.x + framework.windows.main.wht-325, v2.y, 13, 13, 26, 26, 26, 254)
+	framework.renderer.draw_bordered_rect(v2.x + framework.windows.main.wht-325, v2.y, 13, 13, 35, 35, 35, 254)
+	if (config[state]) or (not_config_value and state) then
 		if (framework.config.settings_use_sprites) then 
-			framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + v1.wht-325 - 5, v2.y - 5, 23, 23, 0.0, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
+			framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + framework.windows.main.wht-325 - 5, v2.y - 5, 23, 23, 0.0, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
 		else
-			framework.renderer.draw_rect(v2.x + v1.wht-325, v2.y, 12, 12, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
+			framework.renderer.draw_rect(v2.x + framework.windows.main.wht-325, v2.y, 12, 12, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, framework.colors.theme.a)
 		end
 	end
-	local hovered = (framework.renderer.hovered(v2.x + v1.wht-325, v2.y, 13, 13) or framework.renderer.hovered(v2.x, v2.y, framework.elements.item.w, 13))
+	local hovered = (framework.renderer.hovered(v2.x + framework.windows.main.wht-325, v2.y, 13, 13) or framework.renderer.hovered(v2.x, v2.y, framework.elements.item.w, 13))
 	if (hovered and not disabled) then
 		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, color.a, label, font, false, scale, data.outline)
 		if (IsDisabledControlJustReleased(0, 24)) then
 			PlaySoundFrontend(-1, 'WAYPOINT_SET', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
-			if (config_value) then
+			if not (not_config_value) then
 				framework.config[state] = not framework.config[state]
 			end
 			if (data.func) then
@@ -369,9 +378,9 @@ framework.elements.check_box = (function(data)
 			end
 		end
 		if (framework.config.settings_use_sprites) then
-			framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + v1.wht-325 - 5, v2.y - 5, 23, 23, 0.0, 225, 225, 225, 155)
+			framework.renderer.draw_sprite("commonmenu", "shop_tick_icon", v2.x + framework.windows.main.wht-325 - 5, v2.y - 5, 23, 23, 0.0, 225, 225, 225, 155)
 		else
-			framework.renderer.draw_rect(v2.x + v1.wht-325, v2.y, 12, 12, 225, 225, 225, 155)
+			framework.renderer.draw_rect(v2.x + framework.windows.main.wht-325, v2.y, 12, 12, 225, 225, 225, 155)
 		end
 	else
 		framework.renderer.draw_text(v2.x, v2.y - 5, color.r, color.g, color.b, color.a - hover_off, label, font, false, scale, data.outline)
@@ -520,61 +529,81 @@ framework.renderer.draw_window = (function(name)
 		
 	else
 		local v2 = 20
-		draw_rect(v1.x-(v2/2)-70+1, v1.y-(v2/2)-15+1, v1.w+v2+70-2, v1.h+v2+15-2, 20, 20, 20, 254)
-		draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2+2, v1.w+v2+70, 1, 5, 5, 5, 254)
-		draw_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15+v2, v1.w+v2+70, 1, 35, 35, 35, 254)
-		draw_text(v1.x-(v2/2)-70+2.5, v1.y-(v2/2)-15-1.5, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, 254, string.char(68, 69, 77, 79, 78, 73, 90, 69, 68), 2, false, 0.30, true)
-		draw_text(v1.x-(v2/2)+620, v1.y-(v2/2)-15-1.5, 154, 154, 154, 154, ("c[26.02.25]"), 0, 2, 0.28, true)
-		--[[framework.renderer.draw_sprite("demonized", framework.vars.random_str, v1.x, v1.y-49, 201, 66, 0.0, 254, 254, 254, 254)]]
+		local x_offset = v1.x - (v2 / 2) - 70
+		local y_offset = v1.y - (v2 / 2) - 15
+		local width = v1.w + v2 + 70
+		local height = v1.h + v2 + 15
+
+		draw_rect(x_offset + 1, y_offset + 1, width - 2, height - 2, 20, 20, 20, 254)
+		draw_rect(x_offset, y_offset + v2 + 2, width, 1, 5, 5, 5, 254)
+		draw_rect(x_offset, y_offset + v2, width, 1, 35, 35, 35, 254)
+
+		draw_text(x_offset + 2.5, y_offset - 1.5, framework.colors.theme.r, framework.colors.theme.g, framework.colors.theme.b, 254, "DEMONIZED", 2, false, 0.30, true)
+		draw_text(x_offset + 620, y_offset - 1.5, 154, 154, 154, 154, "c[26.02.25]", 0, 2, 0.28, true)
 
 		if (framework.vars.is_developer) then 
-			draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-26, 54, 254, 54, 154, string.format("%s - %s", framework.vars.cursor.x, framework.vars.cursor.y), 0, false, 0.21, true)
-			draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542-13, 54, 254, 54, 154, tostring(garbage).."Kb", 0, false, 0.21, true)
-			draw_text(v1.x-(v2/2)-70+11, v1.y-(v2/2)+542, 254, 54, 54, 154, tostring(previous_garbage).."Kb", 0, false, 0.21, true)
+			draw_text(x_offset + 11, y_offset + 542 - 26, 54, 254, 54, 154, string.format("%s - %s", framework.vars.cursor.x, framework.vars.cursor.y), 0, false, 0.21, true)
+			draw_text(x_offset + 11, y_offset + 542 - 13, 54, 254, 54, 154, tostring(garbage).."Kb", 0, false, 0.21, true)
+			draw_text(x_offset + 11, y_offset + 542, 254, 54, 54, 154, tostring(previous_garbage).."Kb", 0, false, 0.21, true)
 		end
 
 		local v3 = framework.renderer.get_text_width("DEMONIZED", 2, 0.30)
-		draw_text(v1.x-(v2/2)-70+v3-2, v1.y-(v2/2)-15-1.5+4, 154, 154, 154, 154, ".lua", 0, false, 0.21, true)
-		local v11 = v3 + framework.renderer.get_text_width(".lua", 0, 0.21)
-		draw_text(v1.x-(v2/2)-70+v11-2, v1.y-(v2/2)-15-1.5+4, 154, 154, 154, 154, string.char(98, 121, 32, 78, 101, 114, 116, 105, 103, 101, 108), 0, false, 0.21, true)
+		draw_text(x_offset + v3 - 2, y_offset + 4, 154, 154, 154, 154, ".lua", 0, false, 0.21, true)
 
-		draw_bordered_rect(v1.x-(v2/2)-70, v1.y-(v2/2)-15, v1.w+v2+70, v1.h+v2+15, 35, 35, 35, 254)
-		draw_bordered_rect(v1.x-(v2/2)-70-1, v1.y-(v2/2)-15-1, v1.w+v2+70+2, v1.h+v2+15+2, 1, 1, 1, 254)
-		
-		draw_rect(v1.x + 1 - framework.elements.tabs_props[1], v1.y + 1, framework.elements.tabs_props[1]-5-2, v1.h-2, 20, 20, 20, 254)
-		draw_bordered_rect(v1.x - framework.elements.tabs_props[1], v1.y, framework.elements.tabs_props[1]-5, v1.h, 35, 35, 35, 254)
-		draw_bordered_rect(v1.x-1 - framework.elements.tabs_props[1], v1.y-1, framework.elements.tabs_props[1]-5+2, v1.h+2, 1, 1, 1, 154)
-		
-		for key=1, #framework.elements.tabs_data do
-			local value = framework.elements.tabs_data[key]
+		local v11 = v3 + framework.renderer.get_text_width(".lua", 0, 0.21)
+		draw_text(x_offset + v11 - 2, y_offset + 4, 154, 154, 154, 154, "by Nertigel", 0, false, 0.21, true)
+
+		draw_bordered_rect(x_offset, y_offset, width, height, 35, 35, 35, 254)
+		draw_bordered_rect(x_offset - 1, y_offset - 1, width + 2, height + 2, 1, 1, 1, 254)
+
+		draw_rect(v1.x + 1 - framework.elements.tabs_props[1], v1.y + 1, framework.elements.tabs_props[1] - 7, v1.h - 2, 20, 20, 20, 254)
+		draw_bordered_rect(v1.x - framework.elements.tabs_props[1], v1.y, framework.elements.tabs_props[1] - 5, v1.h, 35, 35, 35, 254)
+		draw_bordered_rect(v1.x - 1 - framework.elements.tabs_props[1], v1.y - 1, framework.elements.tabs_props[1] - 3, v1.h + 2, 1, 1, 1, 154)
+
+		for key, value in ipairs(framework.elements.tabs_data) do
 			local width = framework.renderer.get_text_width(value, 0, 0.23)
 			local state = framework.vars.current_tab == value
 			framework.elements.item = {x = -framework.elements.tabs_props[1] + 5, y = framework.elements.tabs_props[2] - 10, w = 15, h = 15}
-			framework.elements.text_control({label = value, unscrollable = true, scale = 0.25, align = 1, outline = true, color = (state and framework.colors.theme or nil), 
+
+			framework.elements.text_control({
+				label = value, 
+				unscrollable = true, 
+				scale = 0.25, 
+				align = 1, 
+				outline = true, 
+				color = state and framework.colors.theme or nil, 
 				func = (function() 
 					framework.vars.current_tab = value 
 					framework.groupboxes.scroll_y = {[1] = 0, [2] = 0}
-				end)})
+				end)
+			})
+
 			framework.elements.tabs_props[2] = framework.elements.tabs_props[2] + 25
 		end
 		framework.elements.tabs_props[2] = 0
-		
+
 		framework.elements.reset()
 
-		draw_rect(v1.x + 1, v1.y + 1, v1.w-2, v1.h-2, 20, 20, 20, 254)
+		draw_rect(v1.x + 1, v1.y + 1, v1.w - 2, v1.h - 2, 20, 20, 20, 254)
 		draw_bordered_rect(v1.x, v1.y, v1.w, v1.h, 35, 35, 35, 254)
-		draw_bordered_rect(v1.x-1, v1.y-1, v1.w+2, v1.h+2, 1, 1, 1, 154)
-		
-		local window_size = framework.windows[name].wht-290
-		draw_rect(v1.x + 10, v1.y + 10, window_size, v1.h - 20, 15, 15, 15, 254)
-		draw_bordered_rect(v1.x + 10, v1.y + 10, window_size, v1.h - 20, 25, 25, 25, 254)
-		draw_bordered_rect(v1.x + 10-1, v1.y + 10-1, window_size+2, v1.h - 20+2, 1, 1, 1, 55)
-		draw_text(v1.x + 10 + 5, v1.y + 10 - 10, 225, 225, 225, 254, framework.vars.groupbox_labels[1], 0, false, 0.23, true)
+		draw_bordered_rect(v1.x - 1, v1.y - 1, v1.w + 2, v1.h + 2, 1, 1, 1, 154)
 
-		draw_rect(v1.x + 10 + window_size + 10, v1.y + 10, window_size, v1.h - 20, 15, 15, 15, 254)
-		draw_bordered_rect(v1.x + 10 + window_size + 10, v1.y + 10, window_size, v1.h - 20, 25, 25, 25, 254)
-		draw_bordered_rect(v1.x + 10 + window_size + 10-1, v1.y + 10-1, window_size+2, v1.h - 20+2, 1, 1, 1, 55)
-		draw_text(v1.x + 10 + window_size + 10 + 5, v1.y + 10 - 10, 225, 225, 225, 254, framework.vars.groupbox_labels[2], 0, false, 0.23, true)
+		local window_size = framework.windows[name].wht - 290
+		local box_x = v1.x + 10
+		local box_y = v1.y + 10
+		local box_w = window_size
+		local box_h = v1.h - 20
+
+		draw_rect(box_x, box_y, box_w, box_h, 15, 15, 15, 254)
+		draw_bordered_rect(box_x, box_y, box_w, box_h, 25, 25, 25, 254)
+		draw_bordered_rect(box_x - 1, box_y - 1, box_w + 2, box_h + 2, 1, 1, 1, 55)
+		draw_text(box_x + 5, box_y - 10, 225, 225, 225, 254, framework.vars.groupbox_labels[1], 0, false, 0.23, true)
+
+		local box_x2 = box_x + box_w + 10
+		draw_rect(box_x2, box_y, box_w, box_h, 15, 15, 15, 254)
+		draw_bordered_rect(box_x2, box_y, box_w, box_h, 25, 25, 25, 254)
+		draw_bordered_rect(box_x2 - 1, box_y - 1, box_w + 2, box_h + 2, 1, 1, 1, 55)
+		draw_text(box_x2 + 5, box_y - 10, 225, 225, 225, 254, framework.vars.groupbox_labels[2], 0, false, 0.23, true)
 
 		--[[gradient bar
 		draw_rect(v1.x+50, v1.y-200, 141, 141, 1, 1, 1, 254)
@@ -648,18 +677,25 @@ framework.renderer.rgb_transition_effect = (function(speed)
 end)
 
 framework.unload = (function()
-	for key, value in pairs(framework.events) do 
-		if (value.handler ~= nil) then 
-			RemoveEventHandler(value.handler)
-			value.handler = nil
-		end
-	end
+	local _, p_error = pcall(function() 
+		framework.renderer.should_draw = false
 
-	framework.is_loaded = false
-	
-	wait(3000)
-	framework = nil
-	game = nil
+		for key, value in pairs(framework.events) do 
+			if (value.handler ~= nil) then 
+				RemoveEventHandler(value.handler)
+				value.handler = nil
+			end
+		end
+
+		framework.is_loaded = false
+		game = {}
+		framework = {}
+		TriggerScreenblurFadeOut(500)
+	end)
+	if (p_error) then
+		p_error = "unload menu failed"
+		push_notification(string.format("ERR: %s", p_error), 15000)
+	end
 end)
 
 local game = {
@@ -916,6 +952,11 @@ create_thread(function()
 		local _, p_error = pcall(function() 
 			if (IsDisabledControlJustReleased(0, 348)) then
 				framework.renderer.should_draw = not framework.renderer.should_draw
+				if (framework.renderer.should_draw) then 
+					TriggerScreenblurFadeIn(500)
+				else
+					TriggerScreenblurFadeOut(500)
+				end
 			end
 			--framework.renderer.draw_window("confirmation")
 			if (framework.renderer.should_draw and not framework.renderer.should_pause_rendering) then
@@ -1141,26 +1182,8 @@ create_thread(function()
 							create_thread(function() game.cheats.explode_player_via_vehicle(framework.cache.selected_player) end)
 						end)})
 						check_box({label = "blame carry", state = framework.cache.blame_carry.by, func = (function()
-							if (framework.cache.blame_carry.by == nil) then 
-								framework.cache.blame_carry.by = framework.cache.selected_player
-
-								local animDict = "nm"
-								if not HasAnimDictLoaded(animDict) then
-									RequestAnimDict(animDict)
-									while not HasAnimDictLoaded(animDict) do
-										Wait(0)
-									end        
-								end
-								AttachEntityToEntity(game.demonized.ped, game.online_players[framework.cache.selected_player].ped, 0, framework.cache.blame_carry.attach_x, framework.cache.blame_carry.attach_y, framework.cache.blame_carry.attach_z, 0.5, 0.5, 180, false, false, false, false, 2, false)
-							else
-								framework.cache.blame_carry.by = nil
-								ClearPedSecondaryTask(game.demonized.ped)
-								DetachEntity(game.demonized.ped, true, false)
-							end
+							create_thread(function() game.cheats.blame_carry(framework.cache.selected_player) end)
 						end), disabled = (game.online_players[framework.cache.selected_player].ped == game.demonized.ped)})
-						check_box({label = "blame ", state = framework.cache.blame_dragged_by, func = (function()
-							
-						end)})
 					else
 						framework.cache.selected_player = nil
 						text_control({label = "please select a player to view options", disabled = true})
@@ -2349,6 +2372,24 @@ game.cheats.explode_player_via_vehicle = (function(player)
 		end
 	end
 end)
+game.cheats.blame_carry = (function(player)
+	if (game.online_players[player] and framework.cache.blame_carry.by == nil) then 
+		framework.cache.blame_carry.by = player
+
+		local anim_dict = "nm"
+		if not (HasAnimDictLoaded(anim_dict)) then
+			RequestAnimDict(anim_dict)
+			while not (HasAnimDictLoaded(anim_dict)) do
+				wait(0)
+			end        
+		end
+		AttachEntityToEntity(game.demonized.ped, game.online_players[player].ped, 0, framework.cache.blame_carry.attach_x, framework.cache.blame_carry.attach_y, framework.cache.blame_carry.attach_z, 0.5, 0.5, 180, false, false, false, false, 2, false)
+	else
+		framework.cache.blame_carry.by = nil
+		ClearPedSecondaryTask(game.demonized.ped)
+		DetachEntity(game.demonized.ped, true, false)
+	end
+end)
 
 framework.cache.world_section_props = {
 	legion_square = {
@@ -2474,12 +2515,16 @@ framework.cache.dynamic_triggers = {
     ["esx_take_hostage"] = { files = {"cl_takehostage.lua", "client/cl_takehostage.lua"},
 		look_at = {"takeHostage.targetSrc", "targetSrc"},
         look_for = "TriggerServerEvent", skip_lines = 1,
-		default = "TakeHostage:sync"
+		default = "TakeHostage:sync", payload = (function(event)
+			
+		end)
     },
     ["esx_release_hostage"] = { files = {"cl_takehostage.lua", "client/cl_takehostage.lua"},
 		look_at = {"reaction@shove", "shove_var_a"},
         look_for = "TriggerServerEvent", skip_lines = 1,
-		default = "TakeHostage:releaseHostage"
+		default = "TakeHostage:releaseHostage", payload = (function(event)
+			
+		end)
     },
 
     ["qb_bank_robbery"] = {files = {"client/fleeca.lua"},
